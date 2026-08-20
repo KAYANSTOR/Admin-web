@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
-  Home, Users, Key, Settings as SettingsIcon, Plus, UserPlus, ShieldOff, CheckCircle2, Menu, X, KeyRound
+  Home, Users, Key, Settings as SettingsIcon, Plus, UserPlus, ShieldOff, CheckCircle2, Menu, X, KeyRound, Coins
 } from 'lucide-react';
 
 export default function AppLayout() {
@@ -11,12 +11,21 @@ export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const navItems = [
-    { route: '/dashboard', title: 'الرئيسية', icon: Home },
-    { route: '/clients', title: 'العملاء', icon: Users },
-    { route: '/licenses', title: 'التراخيص', icon: Key },
-    { route: '/settings', title: 'الإعدادات', icon: SettingsIcon },
+  const allNavItems = [
+    { route: '/dashboard', title: 'الرئيسية', icon: Home, req: null },
+    { route: '/clients', title: 'العملاء', icon: Users, req: 'clients' },
+    { route: '/commissions', title: 'العمولات', icon: Coins, req: 'commissions' },
+    { route: '/settings', title: 'الإعدادات', icon: SettingsIcon, req: null },
   ];
+
+  const visibleNavItems = allNavItems.filter(item => 
+    !item.req || user?.role === 'ADMIN' || user?.permissions?.includes(item.req)
+  );
+  
+  const middleIndex = Math.floor(visibleNavItems.length / 2);
+
+  const hasAnyQuickAction = user?.role === 'ADMIN' || 
+    user?.permissions?.some(p => ['serials', 'subscriptions', 'commissions', 'employees'].includes(p));
 
   return (
     <div dir="rtl" className="min-h-screen bg-app-bg text-text-primary pb-[104px]">
@@ -29,8 +38,8 @@ export default function AppLayout() {
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 inset-x-0 z-40 px-0 pb-0">
         <div className="relative">
-          {/* Central FAB - Only show if Admin or has clients permission */}
-          {(user?.role === 'ADMIN' || user?.permissions?.includes('clients')) && (
+          {/* Central FAB - Only show if has actions */}
+          {hasAnyQuickAction && (
             <button
               onClick={() => setShowQuickActions(true)}
               className="absolute left-1/2 -translate-x-1/2 -top-6 w-16 h-16 bg-primary-dark text-white rounded-full flex items-center justify-center shadow-lg shadow-black/10 z-50 hover:bg-opacity-90 transition-all active:scale-95"
@@ -42,12 +51,12 @@ export default function AppLayout() {
 
           {/* Bottom Nav Bar */}
           <div className="h-[88px] bg-surface rounded-t-[24px] shadow-[0_-4px_16px_rgba(0,0,0,0.05)] px-4 flex justify-between items-center relative z-40">
-            {navItems.map((item, index) => {
+            {visibleNavItems.map((item, index) => {
               const isActive = location.pathname.startsWith(item.route);
               
               return (
                 <React.Fragment key={item.route}>
-                  {index === 2 && <div className="w-14" />} {/* Spacer for FAB */}
+                  {index === middleIndex && hasAnyQuickAction && <div className="w-14 shrink-0" />} {/* Spacer for FAB */}
                   
                   <button
                     onClick={() => navigate(item.route)}
@@ -82,39 +91,45 @@ export default function AppLayout() {
             <h2 className="text-xl font-bold text-text-primary px-6 py-2 mb-2">إجراءات سريعة</h2>
             
             <div className="flex flex-col">
-              <button 
-                onClick={() => { setShowQuickActions(false); navigate('/create-serial'); }}
-                className="w-full px-6 py-4 flex items-center gap-4 text-text-primary hover:bg-gray-50 transition-colors"
-              >
-                <KeyRound className="w-6 h-6" />
-                <span className="text-lg font-bold">إنشاء سيريال للعميل</span>
-              </button>
-
-              {user?.role === 'ADMIN' && (
+              {(user?.role === 'ADMIN' || user?.permissions?.includes('serials')) && (
                 <button 
-                  onClick={() => { setShowQuickActions(false); /* showCreateUserDialog=true */ }}
+                  onClick={() => { setShowQuickActions(false); navigate('/create-serial'); }}
                   className="w-full px-6 py-4 flex items-center gap-4 text-text-primary hover:bg-gray-50 transition-colors"
                 >
-                  <UserPlus className="w-6 h-6" />
-                  <span className="text-lg font-bold">إنشاء مستخدم مع الصلاحيات</span>
+                  <KeyRound className="w-6 h-6" />
+                  <span className="text-lg font-bold">إنشاء سيريال للعميل</span>
                 </button>
               )}
 
-              <button 
-                onClick={() => { setShowQuickActions(false); navigate('/subscriptions'); }}
-                className="w-full px-6 py-4 flex items-center gap-4 text-error hover:bg-error-bg/50 transition-colors"
-              >
-                <ShieldOff className="w-6 h-6" />
-                <span className="text-lg font-bold">تجميد / حذف اشتراك</span>
-              </button>
+              {(user?.role === 'ADMIN' || user?.permissions?.includes('employees')) && (
+                <button 
+                  onClick={() => { setShowQuickActions(false); navigate('/employees') }}
+                  className="w-full px-6 py-4 flex items-center gap-4 text-text-primary hover:bg-gray-50 transition-colors"
+                >
+                  <UserPlus className="w-6 h-6" />
+                  <span className="text-lg font-bold">إدارة الموظفين</span>
+                </button>
+              )}
 
-              <button 
-                onClick={() => { setShowQuickActions(false); navigate('/commissions'); }}
-                className="w-full px-6 py-4 flex items-center gap-4 text-text-primary hover:bg-gray-50 transition-colors"
-              >
-                <CheckCircle2 className="w-6 h-6" />
-                <span className="text-lg font-bold">تسوية وتصفية عمولة</span>
-              </button>
+              {(user?.role === 'ADMIN' || user?.permissions?.includes('subscriptions')) && (
+                <button 
+                  onClick={() => { setShowQuickActions(false); navigate('/subscriptions'); }}
+                  className="w-full px-6 py-4 flex items-center gap-4 text-error hover:bg-error-bg/50 transition-colors"
+                >
+                  <ShieldOff className="w-6 h-6" />
+                  <span className="text-lg font-bold">تجميد / حذف اشتراك</span>
+                </button>
+              )}
+
+              {(user?.role === 'ADMIN' || user?.permissions?.includes('commissions')) && (
+                <button 
+                  onClick={() => { setShowQuickActions(false); navigate('/commissions'); }}
+                  className="w-full px-6 py-4 flex items-center gap-4 text-text-primary hover:bg-gray-50 transition-colors"
+                >
+                  <CheckCircle2 className="w-6 h-6" />
+                  <span className="text-lg font-bold">تسوية وتصفية عمولة</span>
+                </button>
+              )}
             </div>
           </div>
         </>

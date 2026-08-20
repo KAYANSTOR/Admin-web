@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import fs from 'fs';
+
+const content = `import React, { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, orderBy, deleteDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { ArrowLeft, Search, Plus, Trash2, ShieldBan, CheckCircle } from 'lucide-react';
@@ -13,7 +15,7 @@ export default function Serials() {
     const q = query(collection(db, 'serials'));
     return onSnapshot(q, (snapshot) => {
       const data: any[] = [];
-      snapshot.forEach(doc => data.push({ ...doc.data(), id: doc.id }));
+      snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
       setSerials(data);
     });
   }, []);
@@ -65,14 +67,14 @@ export default function Serials() {
                     </div>
                   </div>
                   <div className="text-left">
-                    <div className={`text-[11px] font-bold px-3 py-1.5 rounded-full ${serial.isActive ? 'bg-icon-green/10 text-icon-green' : 'bg-red-500/10 text-red-500'}`}>
+                    <div className={\`text-[11px] font-bold px-3 py-1.5 rounded-full \${serial.isActive ? 'bg-icon-green/10 text-icon-green' : 'bg-red-500/10 text-red-500'}\`}>
                       {serial.isActive ? 'مفعل' : 'موقوف'}
                     </div>
                   </div>
                 </div>
                 
                 <div className="flex justify-end gap-2 border-t border-gray-50 pt-2">
-                  <button onClick={() => toggleActive(serial)} className={`text-[12px] font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg ${serial.isActive ? 'text-orange-500 bg-orange-50' : 'text-green-600 bg-green-50'}`}>
+                  <button onClick={() => toggleActive(serial)} className={\`text-[12px] font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg \${serial.isActive ? 'text-orange-500 bg-orange-50' : 'text-green-600 bg-green-50'}\`}>
                     {serial.isActive ? <ShieldBan className="w-3 h-3" /> : <CheckCircle className="w-3 h-3" />}
                     {serial.isActive ? 'إيقاف السيريال' : 'تنشيط السيريال'}
                   </button>
@@ -100,3 +102,6 @@ export default function Serials() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('src/pages/Serials.tsx', content);

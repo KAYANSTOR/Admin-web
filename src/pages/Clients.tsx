@@ -9,6 +9,7 @@ export default function Clients() {
   const [activeTab, setActiveTab] = useState(0);
   const [search, setSearch] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [statusModalOpen, setStatusModalOpen] = useState<any>(null);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newStore, setNewStore] = useState('');
@@ -30,8 +31,18 @@ export default function Clients() {
     });
   }, []);
 
+  const getClientStatus = (client: any) => {
+    if (client.status) return client.status;
+    return client.isActive ? 'ACTIVE' : 'SUSPENDED';
+  };
+
+  const isClientActive = (client: any) => {
+    const s = getClientStatus(client);
+    return ['ACTIVE', 'WARNING', 'GRACE_PERIOD'].includes(s);
+  };
+
   const filteredClients = clients
-    .filter(c => (activeTab === 0 ? c.isActive : !c.isActive))
+    .filter(c => (activeTab === 0 ? isClientActive(c) : !isClientActive(c)))
     .filter(c => 
       c.name?.toLowerCase().includes(search.toLowerCase()) || 
       c.phone?.includes(search)
@@ -45,7 +56,8 @@ export default function Clients() {
         name: newName,
         phone: newPhone,
         storeName: newStore,
-        isActive: true,
+        status: 'ACTIVE',
+        isActive: true, // legacy
         createdAt: serverTimestamp(),
         deviceLimit: 3
       });
@@ -56,14 +68,38 @@ export default function Clients() {
     }
   };
 
-  const toggleStatus = async (client: any) => {
+  const changeStatus = async (client: any, newStatus: string) => {
     try {
       await updateDoc(doc(db, 'clients', client.id), {
-        isActive: !client.isActive
+        status: newStatus,
+        isActive: ['ACTIVE', 'WARNING', 'GRACE_PERIOD'].includes(newStatus)
       });
+      setStatusModalOpen(null);
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const StatusBadge = ({ status }: { status: string }) => {
+    const styles: Record<string, string> = {
+      'ACTIVE': 'bg-icon-green/10 text-icon-green',
+      'WARNING': 'bg-yellow-500/10 text-yellow-600',
+      'GRACE_PERIOD': 'bg-icon-orange/10 text-icon-orange',
+      'OVERDUE': 'bg-red-500/10 text-red-500',
+      'SUSPENDED': 'bg-gray-500/10 text-gray-500',
+    };
+    const labels: Record<string, string> = {
+      'ACTIVE': 'نشط',
+      'WARNING': 'إنذار',
+      'GRACE_PERIOD': 'فترة سماح',
+      'OVERDUE': 'متأخر',
+      'SUSPENDED': 'موقوف',
+    };
+    return (
+      <div className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${styles[status] || styles['ACTIVE']}`}>
+        {labels[status] || 'نشط'}
+      </div>
+    );
   };
 
   return (
@@ -127,14 +163,12 @@ export default function Clients() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <div className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${client.isActive ? 'bg-icon-green/10 text-icon-green' : 'bg-red-500/10 text-red-500'}`}>
-                    {client.isActive ? 'نشط' : 'موقوف'}
-                  </div>
+                  <StatusBadge status={getClientStatus(client)} />
                   <button 
-                    onClick={(e) => { e.stopPropagation(); toggleStatus(client); }}
-                    className={`text-[12px] font-bold ${client.isActive ? 'text-red-500' : 'text-primary'}`}
+                    onClick={(e) => { e.stopPropagation(); setStatusModalOpen(client); }}
+                    className="text-[12px] font-bold text-primary bg-primary/5 px-2 py-1 rounded-lg"
                   >
-                    {client.isActive ? 'تجميد' : 'تنشيط'}
+                    تغيير الحالة
                   </button>
                 </div>
               </div>
@@ -159,6 +193,40 @@ export default function Clients() {
                 <button type="button" onClick={() => setIsCreateModalOpen(false)} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold text-[15px]">إلغاء</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {statusModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface rounded-[24px] w-full max-w-sm p-6 animate-in zoom-in-95 duration-200">
+            <h2 className="font-black text-[18px] text-primary-dark mb-4 text-center">تغيير حالة العميل</h2>
+            <div className="text-center text-[14px] text-gray-500 mb-6">{statusModalOpen.name}</div>
+            
+            <div className="space-y-2">
+              {[
+                { val: 'ACTIVE', label: 'نشط', classes: 'bg-icon-green/10 text-icon-green' },
+                { val: 'WARNING', label: 'إنذار', classes: 'bg-yellow-500/10 text-yellow-600' },
+                { val: 'GRACE_PERIOD', label: 'فترة سماح', classes: 'bg-icon-orange/10 text-icon-orange' },
+                { val: 'OVERDUE', label: 'متأخر', classes: 'bg-red-500/10 text-red-500' },
+                { val: 'SUSPENDED', label: 'موقوف', classes: 'bg-gray-500/10 text-gray-500' },
+              ].map(s => (
+                <button
+                  key={s.val}
+                  onClick={() => changeStatus(statusModalOpen, s.val)}
+                  className={`w-full py-3 rounded-xl font-bold text-[14px] ${s.classes} ${getClientStatus(statusModalOpen) === s.val ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            
+            <button 
+              onClick={() => setStatusModalOpen(null)} 
+              className="w-full mt-4 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold text-[15px]"
+            >
+              إلغاء
+            </button>
           </div>
         </div>
       )}

@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, query, where, getDocs, limit, addDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, query, where, getDocs, addDoc, doc, onSnapshot } from 'firebase/firestore';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
+import { db, auth } from '../lib/firebase';
 
 export interface UserProfile {
   id: string;
   name: string;
   phone: string;
   pin: string;
-  role: 'ADMIN' | 'EMPLOYEE';
+  role: 'ADMIN' | 'STAFF';
   permissions: string[];
   isActive: boolean;
 }
@@ -28,21 +29,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkAutoLogin = async () => {
-      try {
-        const storedUserStr = localStorage.getItem('kayan_user');
-        if (storedUserStr) {
-          const storedUser = JSON.parse(storedUserStr);
-          // Optional: re-verify user from db, for now just use local cache like Android does
-          setUser(storedUser);
+    let unsubscribeDoc: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const storedUserStr = localStorage.getItem('kayan_user');
+          if (storedUserStr) {
+            setUser(JSON.parse(storedUserStr));
+          }
+          
+          // Setup real-time listener for current user
+          const usersRef = collection(db, 'users');
+          const q = query(usersRef, where("phone", "==", firebaseUser.email?.split('@')[0]));
+          
+          unsubscribeDoc = onSnapshot(q, (snapshot) => {
+            if (!snapshot.empty) {
+              const uData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as UserProfile;
+              
+              if (uData.isActive === false) {
+                // Suspended
+                firebaseSignOut(auth).then(() => {
+                  setUser(null);
+                  localStorage.removeItem('kayan_user');
+                  setErrorMsg('تم إيقاف حسابك من قبل الإدارة.');
+                });
+              } else {
+                setUser(uData);
+                localStorage.setItem('kayan_user', JSON.stringify(uData));
+              }
+            } else {
+              // Document deleted or not created yet
+              setUser((prev) => {
+                if (prev) {
+                  firebaseSignOut(auth).then(() => {
+                    localStorage.removeItem('kayan_user');
+                    setErrorMsg('حسابك غير موجود.');
+                  });
+                }
+                return null;
+              });
+            }
+          });
+          
+        } catch (err) {
+          console.error("Error restoring session", err);
         }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
+      } else {
+        setUser(null);
+        localStorage.removeItem('kayan_user');
+        if (unsubscribeDoc) {
+          unsubscribeDoc();
+          unsubscribeDoc = null;
+        }
       }
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeDoc) unsubscribeDoc();
     };
-    checkAutoLogin();
   }, []);
 
   const login = async (name: string, phone: string, pin: string) => {
@@ -52,58 +99,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setErrorMsg(null);
+    const email = `${phone}@kayansoft.com`;
+    const password = `${pin}kayan`;
+
     try {
-      // Create admin if db is empty, matching Android's AuthViewModel
-      const usersRef = collection(db, 'users');
-      const qAll = query(usersRef, limit(1));
-      const querySnapshotAll = await getDocs(qAll);
-      
-      if (querySnapshotAll.empty) {
-        const admin: Omit<UserProfile, 'id'> = {
-          name: "jar",
-          phone: "773303455",
-          pin: "0808",
-          role: "ADMIN",
-          permissions: ["clients", "licenses", "serials", "commissions", "subscriptions", "employees"],
-          isActive: true
-        };
-        await addDoc(usersRef, admin);
-        
-        if (name === admin.name && phone === admin.phone && pin === admin.pin) {
-          const newUser = { id: 'admin_created', ...admin };
-          setUser(newUser);
-          localStorage.setItem('kayan_user', JSON.stringify(newUser));
-          return;
+      // 1. Try to sign in with Firebase Auth
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (authError: any) {
+        // Fallback for Admin creation ONLY
+        if (phone === '773303455' && pin === '0808') {
+          try {
+            await createUserWithEmailAndPassword(auth, email, password);
+            // After creating, we are logged in, so we can write to Firestore
+            const adminDoc = {
+              name: name,
+              phone: "773303455",
+              pin: "0808",
+              role: "ADMIN",
+              permissions: ["clients", "serials", "commissions", "subscriptions", "employees", "sales"],
+              isActive: true
+            };
+            const qs = await getDocs(query(collection(db, 'users'), where("phone", "==", phone)));
+            if (qs.empty) {
+              await addDoc(collection(db, 'users'), adminDoc);
+            }
+          } catch (createError) {
+             console.error("Admin creation failed", createError);
+             throw authError; // throw original
+          }
+        } else {
+          throw authError; // Not the admin fallback, so just throw
         }
       }
 
-      const q = query(
-        usersRef, 
-        where("phone", "==", phone),
-        where("name", "==", name),
-        where("pin", "==", pin)
-      );
+      // 2. We are authenticated! Now read from Firestore to get Profile
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where("phone", "==", phone));
       
-      const querySnapshot = await getDocs(q);
+      let querySnapshot = await getDocs(q);
+      
+      // If admin document missing for some reason, create it now
+      if (querySnapshot.empty && phone === '773303455' && pin === '0808') {
+         const adminDoc = {
+            name: name,
+            phone: "773303455",
+            pin: "0808",
+            role: "ADMIN",
+            permissions: ["clients", "licenses", "serials", "commissions", "subscriptions", "employees", "sales"],
+            isActive: true
+         };
+         await addDoc(collection(db, 'users'), adminDoc);
+         querySnapshot = await getDocs(q);
+      }
       
       if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
-        const userData = doc.data() as Omit<UserProfile, 'id'>;
-        const newUser = { id: doc.id, ...userData };
+        const docSnap = querySnapshot.docs[0];
+        const userData = docSnap.data() as Omit<UserProfile, 'id'>;
+        
+        if (userData.isActive === false) {
+          await firebaseSignOut(auth);
+          setErrorMsg('تم إيقاف هذا الحساب من قبل الإدارة.');
+          throw new Error('Account suspended');
+        }
+        
+        const newUser = { id: docSnap.id, ...userData };
         setUser(newUser);
         localStorage.setItem('kayan_user', JSON.stringify(newUser));
       } else {
-        setErrorMsg('البيانات المدخلة غير صحيحة');
-        throw new Error('Invalid credentials');
+        await firebaseSignOut(auth);
+        setErrorMsg('الحساب غير موجود في قاعدة البيانات');
+        throw new Error('Invalid credentials (Firestore mismatch)');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setErrorMsg('حدث خطأ في الاتصال بقاعدة البيانات');
+      await firebaseSignOut(auth).catch(() => {});
+      setErrorMsg(e.message === 'Account suspended' ? 'تم إيقاف هذا الحساب من قبل الإدارة.' : (e.message === 'Invalid credentials (Firestore mismatch)' ? 'الحساب غير موجود في قاعدة البيانات' : 'حدث خطأ في تسجيل الدخول. تأكد من صحة البيانات.'));
       throw e;
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await firebaseSignOut(auth);
     localStorage.removeItem('kayan_user');
     setUser(null);
   };

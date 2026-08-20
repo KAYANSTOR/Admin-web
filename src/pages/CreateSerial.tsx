@@ -48,7 +48,9 @@ export default function CreateSerial() {
     
     setIsLoading(true);
     try {
-      const code = Array(4).fill(0).map(() => Math.random().toString(36).substring(2, 6).toUpperCase()).join('-');
+      const array = new Uint32Array(4);
+      crypto.getRandomValues(array);
+      const code = Array.from(array).map(n => n.toString(36).substring(0, 4).toUpperCase().padStart(4, '0')).join('-');
       
       await addDoc(collection(db, 'serials'), {
         code,
