@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, collection, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, collection, query, where, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { ArrowRight, CheckCircle2, X, Wallet, CreditCard, Activity, Coins, User, Phone, Building2, Percent, Edit2, ChevronLeft } from 'lucide-react';
+import { ArrowRight, CheckCircle2, X, Wallet, CreditCard, Activity, Coins, User, Phone, Building2, Percent, Edit2, ChevronLeft, Trash2 } from 'lucide-react';
 
 export default function ClientProfile() {
   const { id } = useParams();
@@ -85,6 +85,18 @@ export default function ClientProfile() {
 
   const currentStatus = client.status || (client.isActive ? 'ACTIVE' : 'SUSPENDED');
 
+  
+  const handleDeleteClient = async () => {
+    if (window.confirm('هل أنت متأكد من حذف هذا العميل وجميع بياناته؟')) {
+      try {
+        await deleteDoc(doc(db, 'clients', id!));
+        navigate('/clients');
+      } catch (err) {
+        console.error('Error deleting client', err);
+      }
+    }
+  };
+
   const handleSettle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!settlementModal || !settleAmount) return;
@@ -139,9 +151,14 @@ export default function ClientProfile() {
       <div className="bg-white rounded-[24px] shadow-[0_2px_4px_rgba(0,0,0,0.05)] overflow-hidden">
         <div className="pt-8 pb-6 px-6 flex flex-col items-center relative text-center">
           <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-r from-teal-start/10 to-purple-end/10" />
-          <div className="absolute top-4 right-4 z-10">
+          
+          <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
             <StatusBadge status={currentStatus} />
+            <button onClick={handleDeleteClient} className="p-2 bg-white/20 hover:bg-red-500/80 transition-colors rounded-full backdrop-blur-sm text-white">
+              <Trash2 className="w-5 h-5" />
+            </button>
           </div>
+
           
           <div className="w-[84px] h-[84px] rounded-full bg-gradient-to-tr from-teal-start to-purple-end text-white text-[32px] font-black flex items-center justify-center z-10 shadow-lg border-4 border-white mb-4">
             {client.name?.charAt(0) || '?'}

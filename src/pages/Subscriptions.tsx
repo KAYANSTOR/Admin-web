@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Ban, Play, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Subscriptions() {
@@ -18,6 +18,29 @@ export default function Subscriptions() {
       setSubs(data);
     });
   }, []);
+
+  
+  const toggleStatus = async (sub: any) => {
+    try {
+      const newStatus = sub.statusTypeString === 'SUCCESS' ? 'WARNING' : 'SUCCESS';
+      await updateDoc(doc(db, 'subscriptions', sub.id), {
+        statusTypeString: newStatus,
+        statusText: newStatus === 'SUCCESS' ? 'نشط' : 'مجمد'
+      });
+    } catch (e) {
+      console.error('Error toggling status', e);
+    }
+  };
+
+  const deleteSub = async (id: string) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا الاشتراك؟')) {
+      try {
+        await deleteDoc(doc(db, 'subscriptions', id));
+      } catch (e) {
+        console.error('Error deleting subscription', e);
+      }
+    }
+  };
 
   const filteredSubs = subs.filter(sub => {
     const isSuccess = sub.statusTypeString === 'SUCCESS';
@@ -59,11 +82,30 @@ export default function Subscriptions() {
                   <div className="text-[13px] text-gray-500 mt-1">{sub.statusText || 'لا توجد تفاصيل للحالة'}</div>
                 </div>
                 <div className="text-left">
+                  
                   <div className={`text-[11px] font-bold px-3 py-1.5 rounded-full ${sub.statusTypeString === 'SUCCESS' ? 'bg-icon-green/10 text-icon-green' : 'bg-icon-orange/10 text-icon-orange'}`}>
                     {sub.statusTypeString === 'SUCCESS' ? 'فعال' : 'تجريبي / معلق'}
                   </div>
                 </div>
               </div>
+              
+              <div className="flex justify-end gap-2 mt-2">
+                <button 
+                  onClick={() => toggleStatus(sub)}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-bold ${sub.statusTypeString === 'SUCCESS' ? 'bg-orange-50 text-orange-500' : 'bg-green-50 text-green-600'}`}
+                >
+                  {sub.statusTypeString === 'SUCCESS' ? <Ban className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                  {sub.statusTypeString === 'SUCCESS' ? 'تجميد' : 'تفعيل'}
+                </button>
+                <button 
+                  onClick={() => deleteSub(sub.id)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-red-50 text-red-500"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  حذف
+                </button>
+              </div>
+
               {i < filteredSubs.length - 1 && <div className="h-[1px] bg-gray-100" />}
             </React.Fragment>
           )) : (

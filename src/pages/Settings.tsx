@@ -194,7 +194,7 @@ export default function Settings() {
           <SettingRow 
             icon={HelpCircle} 
             title="المساعدة والدعم" 
-            onClick={() => {}}
+            onClick={() => window.open('mailto:support@kayansoft.com')}
           />
           <SettingRow 
             icon={LogOut} 
