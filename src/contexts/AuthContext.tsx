@@ -11,6 +11,7 @@ export interface UserProfile {
   role: 'ADMIN' | 'STAFF';
   permissions: string[];
   isActive: boolean;
+  notificationsEnabled?: boolean;
 }
 
 interface AuthContextType {

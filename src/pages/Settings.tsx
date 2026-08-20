@@ -1,24 +1,115 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
   Shield, Bell, Lock, 
-  HelpCircle, LogOut, ChevronLeft 
+  HelpCircle, LogOut, ChevronLeft, X
 } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, updatePassword } from 'firebase/auth';
+import { db, auth } from '../lib/firebase';
 
 export default function Settings() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  
+  // States for Security Modal
+  const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
+  const [oldPin, setOldPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const [securityError, setSecurityError] = useState('');
+  const [securitySuccess, setSecuritySuccess] = useState('');
+
+  // States for Notifications Modal
+  const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(user?.notificationsEnabled !== false);
+  const [notifLoading, setNotifLoading] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
-  const SettingRow = ({ icon: Icon, title, subtitle, onClick, destructive = false }: any) => (
+  const handleUpdatePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSecurityError('');
+    setSecuritySuccess('');
+
+    if (oldPin !== user?.pin) {
+      setSecurityError('الرمز القديم غير صحيح');
+      return;
+    }
+
+    if (newPin.length !== 4) {
+      setSecurityError('رمز الدخول الجديد يجب أن يكون 4 أرقام');
+      return;
+    }
+    
+    if (oldPin === newPin) {
+      setSecurityError('الرمز الجديد مطابق للرمز القديم');
+      return;
+    }
+
+    setSecurityLoading(true);
+    try {
+      // Re-authenticate first to ensure updatePassword works
+      const email = `${user.phone}@kayansoft.com`;
+      const oldPassword = `${oldPin}kayan`;
+      const newPassword = `${newPin}kayan`;
+      
+      await signInWithEmailAndPassword(auth, email, oldPassword);
+      
+      if (auth.currentUser) {
+        await updatePassword(auth.currentUser, newPassword);
+      }
+
+      // Update Firestore
+      if (user?.id) {
+        await updateDoc(doc(db, 'users', user.id), {
+          pin: newPin
+        });
+      }
+
+      setSecuritySuccess('تم تغيير رمز الدخول بنجاح');
+      setTimeout(() => {
+        setIsSecurityModalOpen(false);
+        setOldPin('');
+        setNewPin('');
+        setSecuritySuccess('');
+      }, 1500);
+
+    } catch (err: any) {
+      console.error(err);
+      setSecurityError('حدث خطأ أثناء تغيير الرمز. حاول مرة أخرى.');
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  const handleToggleNotifications = async () => {
+    const newValue = !notificationsEnabled;
+    setNotificationsEnabled(newValue);
+    setNotifLoading(true);
+    try {
+      if (user?.id) {
+        await updateDoc(doc(db, 'users', user.id), {
+          notificationsEnabled: newValue
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      // Revert if failed
+      setNotificationsEnabled(!newValue);
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  const SettingRow = ({ icon: Icon, title, subtitle, onClick, destructive = false, children }: any) => (
     <div 
       onClick={onClick}
-      className="flex items-center justify-between p-4 bg-white border-b border-gray-100 last:border-0 cursor-pointer active:bg-gray-50 transition-colors"
+      className={`flex items-center justify-between p-4 bg-white border-b border-gray-100 last:border-0 ${onClick ? 'cursor-pointer active:bg-gray-50' : ''} transition-colors`}
     >
       <div className="flex items-center gap-4">
         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${destructive ? 'bg-red-50 text-red-500' : 'bg-app-bg text-primary-dark'}`}>
@@ -29,7 +120,7 @@ export default function Settings() {
           {subtitle && <div className="text-[12px] text-gray-500 mt-0.5">{subtitle}</div>}
         </div>
       </div>
-      {!destructive && <ChevronLeft className="w-5 h-5 text-gray-400" />}
+      {children ? children : (onClick && !destructive ? <ChevronLeft className="w-5 h-5 text-gray-400" /> : null)}
     </div>
   );
 
@@ -72,13 +163,13 @@ export default function Settings() {
             icon={Bell} 
             title="الإشعارات" 
             subtitle="التحكم في تنبيهات النظام" 
-            onClick={() => {}}
+            onClick={() => setIsNotificationsModalOpen(true)}
           />
           <SettingRow 
             icon={Lock} 
             title="الأمان" 
             subtitle="تغيير رمز الدخول (PIN)" 
-            onClick={() => {}}
+            onClick={() => setIsSecurityModalOpen(true)}
           />
         </div>
 
@@ -97,6 +188,113 @@ export default function Settings() {
           />
         </div>
       </div>
+
+      {/* Security Modal */}
+      {isSecurityModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface rounded-[24px] w-full max-w-sm p-6 animate-in zoom-in-95 duration-200 relative">
+            <button 
+              onClick={() => setIsSecurityModalOpen(false)}
+              className="absolute top-4 left-4 p-2 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4 mx-auto">
+              <Lock className="w-6 h-6 text-primary" />
+            </div>
+            
+            <h2 className="font-black text-[18px] text-primary-dark mb-2 text-center">تغيير رمز الدخول</h2>
+            <p className="text-[13px] text-gray-500 mb-6 text-center">الرجاء إدخال الرمز الحالي والرمز الجديد</p>
+            
+            <form onSubmit={handleUpdatePin} className="space-y-4">
+              <div>
+                <input 
+                  required 
+                  type="password" 
+                  maxLength={4} 
+                  inputMode="numeric" 
+                  dir="ltr" 
+                  placeholder="الرمز الحالي (4 أرقام)" 
+                  className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-center tracking-[0.5em] text-[14px]" 
+                  value={oldPin} 
+                  onChange={e => setOldPin(e.target.value.replace(/\D/g, ''))} 
+                />
+              </div>
+              
+              <div>
+                <input 
+                  required 
+                  type="password" 
+                  maxLength={4} 
+                  inputMode="numeric" 
+                  dir="ltr" 
+                  placeholder="الرمز الجديد (4 أرقام)" 
+                  className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-center tracking-[0.5em] text-[14px]" 
+                  value={newPin} 
+                  onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))} 
+                />
+              </div>
+              
+              {securityError && <p className="text-red-500 text-[12px] font-bold text-center">{securityError}</p>}
+              {securitySuccess && <p className="text-green-500 text-[12px] font-bold text-center">{securitySuccess}</p>}
+              
+              <button 
+                type="submit" 
+                disabled={securityLoading} 
+                className="w-full bg-primary text-white py-3.5 rounded-xl font-bold text-[15px] mt-2 disabled:opacity-50"
+              >
+                {securityLoading ? 'جاري الحفظ...' : 'تغيير الرمز'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications Modal */}
+      {isNotificationsModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
+          <div className="bg-surface rounded-t-[24px] sm:rounded-[24px] w-full max-w-sm p-6 animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-200 relative pb-10 sm:pb-6">
+            <button 
+              onClick={() => setIsNotificationsModalOpen(false)}
+              className="absolute top-4 left-4 p-2 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mb-4 mx-auto">
+              <Bell className="w-6 h-6 text-blue-500" />
+            </div>
+
+            <h2 className="font-black text-[18px] text-primary-dark mb-2 text-center">إعدادات الإشعارات</h2>
+            <p className="text-[13px] text-gray-500 mb-6 text-center">قم بتفعيل أو تعطيل التنبيهات الخاصة بالنظام</p>
+
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <div className="font-bold text-[15px] text-primary-dark">تلقي الإشعارات</div>
+                <div className="text-[12px] text-gray-500 mt-1">تنبيهات العمولات والاشتراكات الجديدة</div>
+              </div>
+              
+              {/* Toggle Switch */}
+              <button 
+                type="button"
+                disabled={notifLoading}
+                onClick={handleToggleNotifications}
+                className={`w-12 h-7 rounded-full p-1 transition-colors relative disabled:opacity-50 ${notificationsEnabled ? 'bg-primary' : 'bg-gray-200'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${notificationsEnabled ? 'transform -translate-x-5' : 'transform translate-x-0'}`} />
+              </button>
+            </div>
+            
+            <button 
+              onClick={() => setIsNotificationsModalOpen(false)}
+              className="w-full bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold text-[15px] mt-6"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

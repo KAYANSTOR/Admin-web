@@ -13,6 +13,7 @@ export default function Clients() {
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newStore, setNewStore] = useState('');
+  const [newCommission, setNewCommission] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -58,11 +59,12 @@ export default function Clients() {
         storeName: newStore,
         status: 'ACTIVE',
         isActive: true, // legacy
+        commissionPercentage: parseFloat(newCommission) || 0,
         createdAt: serverTimestamp(),
         deviceLimit: 3
       });
       setIsCreateModalOpen(false);
-      setNewName(''); setNewPhone(''); setNewStore('');
+      setNewName(''); setNewPhone(''); setNewStore(''); setNewCommission('');
     } catch (err) {
       console.error(err);
     }
@@ -188,6 +190,7 @@ export default function Clients() {
               <input required type="text" placeholder="اسم العميل" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newName} onChange={e => setNewName(e.target.value)} />
               <input required type="tel" placeholder="رقم الهاتف" dir="ltr" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-right text-[14px]" value={newPhone} onChange={e => setNewPhone(e.target.value)} />
               <input type="text" placeholder="اسم المتجر (اختياري)" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newStore} onChange={e => setNewStore(e.target.value)} />
+              <input type="number" step="0.01" min="0" max="100" placeholder="نسبة العمولة (%)" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newCommission} onChange={e => setNewCommission(e.target.value)} />
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="flex-1 bg-primary text-white py-3.5 rounded-xl font-bold text-[15px]">إضافة</button>
                 <button type="button" onClick={() => setIsCreateModalOpen(false)} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold text-[15px]">إلغاء</button>
