@@ -1,0 +1,167 @@
+import React, { useEffect, useState } from 'react';
+import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { ArrowLeft, Search, Plus, Phone, Building2 } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+
+export default function Clients() {
+  const [clients, setClients] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState(0);
+  const [search, setSearch] = useState('');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newStore, setNewStore] = useState('');
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tab = searchParams.get('tab');
+    if (tab) setActiveTab(parseInt(tab));
+  }, [location]);
+
+  useEffect(() => {
+    const q = query(collection(db, 'clients'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      const data: any[] = [];
+      snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+      setClients(data);
+    });
+  }, []);
+
+  const filteredClients = clients
+    .filter(c => (activeTab === 0 ? c.isActive : !c.isActive))
+    .filter(c => 
+      c.name?.toLowerCase().includes(search.toLowerCase()) || 
+      c.phone?.includes(search)
+    );
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim() || !newPhone.trim()) return;
+    try {
+      await addDoc(collection(db, 'clients'), {
+        name: newName,
+        phone: newPhone,
+        storeName: newStore,
+        isActive: true,
+        createdAt: serverTimestamp(),
+        deviceLimit: 3
+      });
+      setIsCreateModalOpen(false);
+      setNewName(''); setNewPhone(''); setNewStore('');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const toggleStatus = async (client: any) => {
+    try {
+      await updateDoc(doc(db, 'clients', client.id), {
+        isActive: !client.isActive
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <div className="bg-app-bg min-h-full pb-[100px]">
+      <div className="bg-surface px-4 py-4 flex items-center justify-between sticky top-0 z-10 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+        <button onClick={() => navigate('/dashboard')} className="p-2 active:scale-95 transition-transform">
+          <ArrowLeft className="w-6 h-6 text-primary-dark" />
+        </button>
+        <h1 className="text-[18px] font-black text-primary-dark">إدارة العملاء</h1>
+        <button onClick={() => setIsCreateModalOpen(true)} className="p-2 active:scale-95 transition-transform">
+          <Plus className="w-6 h-6 text-primary" />
+        </button>
+      </div>
+
+      <div className="p-4 space-y-4">
+        <div className="relative">
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="بحث بالاسم أو الرقم..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pr-10 pl-4 py-3 bg-white border border-gray-100 rounded-[16px] shadow-sm outline-none focus:ring-1 focus:ring-primary focus:border-primary text-[14px]"
+          />
+        </div>
+
+        <div className="flex bg-gray-200/50 rounded-xl p-1">
+          <button 
+            onClick={() => setActiveTab(0)}
+            className={`flex-1 py-2 text-[14px] font-bold rounded-lg transition-colors ${activeTab === 0 ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
+          >
+            النشطين
+          </button>
+          <button 
+            onClick={() => setActiveTab(1)}
+            className={`flex-1 py-2 text-[14px] font-bold rounded-lg transition-colors ${activeTab === 1 ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
+          >
+            غير النشطين
+          </button>
+        </div>
+
+        <div className="bg-white rounded-[20px] shadow-[0_2px_4px_rgba(0,0,0,0.05)] p-4 space-y-4">
+          {filteredClients.length > 0 ? filteredClients.map((client, i) => (
+            <React.Fragment key={client.id}>
+              <div className="flex justify-between items-center py-1">
+                <div 
+                  className="flex items-center gap-3 flex-1 cursor-pointer"
+                  onClick={() => navigate(`/clients/${client.id}`)}
+                >
+                  <div className="w-[44px] h-[44px] rounded-full bg-teal-start flex items-center justify-center text-white font-bold text-[18px]">
+                    {client.name?.charAt(0) || '?'}
+                  </div>
+                  <div>
+                    <div className="font-bold text-[15px] text-primary-dark">{client.name || 'عميل غير مسمى'}</div>
+                    <div className="text-[13px] text-gray-500 flex items-center gap-1 mt-0.5">
+                      <Phone className="w-3 h-3" />
+                      <span dir="ltr">{client.phone}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <div className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${client.isActive ? 'bg-icon-green/10 text-icon-green' : 'bg-red-500/10 text-red-500'}`}>
+                    {client.isActive ? 'نشط' : 'موقوف'}
+                  </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); toggleStatus(client); }}
+                    className={`text-[12px] font-bold ${client.isActive ? 'text-red-500' : 'text-primary'}`}
+                  >
+                    {client.isActive ? 'تجميد' : 'تنشيط'}
+                  </button>
+                </div>
+              </div>
+              {i < filteredClients.length - 1 && <div className="h-[1px] bg-gray-100" />}
+            </React.Fragment>
+          )) : (
+            <div className="text-center py-8 text-gray-500 text-[14px]">لا يوجد عملاء.</div>
+          )}
+        </div>
+      </div>
+
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface rounded-[24px] w-full max-w-sm p-6 animate-in zoom-in-95 duration-200">
+            <h2 className="font-black text-[18px] text-primary-dark mb-6 text-center">إضافة عميل جديد</h2>
+            <form onSubmit={handleCreateClient} className="space-y-4">
+              <input required type="text" placeholder="اسم العميل" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newName} onChange={e => setNewName(e.target.value)} />
+              <input required type="tel" placeholder="رقم الهاتف" dir="ltr" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-right text-[14px]" value={newPhone} onChange={e => setNewPhone(e.target.value)} />
+              <input type="text" placeholder="اسم المتجر (اختياري)" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newStore} onChange={e => setNewStore(e.target.value)} />
+              <div className="flex gap-3 pt-4">
+                <button type="submit" className="flex-1 bg-primary text-white py-3.5 rounded-xl font-bold text-[15px]">إضافة</button>
+                <button type="button" onClick={() => setIsCreateModalOpen(false)} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold text-[15px]">إلغاء</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

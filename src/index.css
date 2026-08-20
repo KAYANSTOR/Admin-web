@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1E8E7E;
+  --color-primary-variant: #146A5E;
+  --color-primary-dark: #141C2E;
+  --color-light-bg: #E6F5F2;
+  --color-accent-pink: #C06C9B;
+  --color-app-bg: #F8F9FA;
+  --color-surface: #FFFFFF;
+  --color-text-primary: #1F2937;
+  --color-text-secondary: #6B7280;
+  --color-text-tertiary: #9CA3AF;
+  
+  /* Status/Icon Colors */
+  --color-success: #10B981;
+  --color-success-bg: #D1FAE5;
+  --color-error: #EF4444;
+  --color-error-bg: #FEE2E2;
+  --color-warning: #F59E0B;
+  --color-warning-bg: #FEF3C7;
+  
+  /* Dashboard Specific Icon Colors */
+  --color-icon-green: #34A853;
+  --color-icon-blue: #2196F3;
+  --color-icon-orange: #FF9800;
+  --color-icon-purple: #673AB7;
+
+  /* Gradients */
+  --color-teal-start: #2B7C8E;
+  --color-purple-end: #8B5E9C;
+}
+
+body {
+  @apply bg-app-bg text-text-primary antialiased;
+}
+
