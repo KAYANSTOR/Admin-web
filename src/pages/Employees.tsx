@@ -13,6 +13,8 @@ const ALL_PERMISSIONS = [
   { id: 'subscriptions', label: 'الاشتراكات' },
   { id: 'employees', label: 'الموظفين' },
   { id: 'sales', label: 'المبيعات' },
+  { id: 'settings', label: 'إعدادات التطبيق' },
+  { id: 'notifications', label: 'إدارة التنبيهات' },
 ];
 
 export default function Employees() {
@@ -32,7 +34,7 @@ export default function Employees() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user && user.role !== 'ADMIN') {
+    if (user && user.role !== 'ADMIN' && !user.permissions?.includes('employees')) {
       navigate('/dashboard');
       return;
     }

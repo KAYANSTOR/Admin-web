@@ -7,6 +7,8 @@ import Clients from './pages/Clients';
 import ClientProfile from './pages/ClientProfile';
 
 import Settings from './pages/Settings';
+import SystemSettings from './pages/SystemSettings';
+import NotificationsManager from './pages/NotificationsManager';
 import Subscriptions from './pages/Subscriptions';
 import Commissions from './pages/Commissions';
 import Sales from './pages/Sales';
@@ -43,6 +45,8 @@ export default function App() {
             <Route path="clients/:id" element={<ProtectedRoute reqPerm="clients"><ClientProfile /></ProtectedRoute>} />
             
             <Route path="settings" element={<Settings />} />
+            <Route path="system-settings" element={<ProtectedRoute reqPerm="settings"><SystemSettings /></ProtectedRoute>} />
+            <Route path="notifications-manager" element={<ProtectedRoute reqPerm="notifications"><NotificationsManager /></ProtectedRoute>} />
             <Route path="subscriptions" element={<ProtectedRoute reqPerm="subscriptions"><Subscriptions /></ProtectedRoute>} />
             <Route path="commissions" element={<ProtectedRoute reqPerm="commissions"><Commissions /></ProtectedRoute>} />
             <Route path="sales" element={<ProtectedRoute reqPerm="sales"><Sales /></ProtectedRoute>} />

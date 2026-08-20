@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Shield, Bell, Lock, 
+  Shield, Bell, BellRing, Lock, Smartphone, 
   HelpCircle, LogOut, ChevronLeft, X
 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -151,12 +151,28 @@ export default function Settings() {
 
         {/* Settings List */}
         <div className="bg-white rounded-[24px] shadow-[0_2px_4px_rgba(0,0,0,0.05)] overflow-hidden">
-          {user?.role === 'ADMIN' && (
+          {(user?.role === 'ADMIN' || user?.permissions?.includes('employees')) && (
             <SettingRow 
               icon={Shield} 
               title="إدارة الموظفين" 
               subtitle="إضافة أو حذف مستخدمين وصلاحياتهم" 
               onClick={() => navigate('/employees')}
+            />
+          )}
+          {(user?.role === 'ADMIN' || user?.permissions?.includes('settings')) && (
+            <SettingRow 
+              icon={Smartphone} 
+              title="إعدادات التطبيق" 
+              subtitle="التحكم بالرابط والرسائل المنبثقة" 
+              onClick={() => navigate('/system-settings')}
+            />
+          )}
+          {(user?.role === 'ADMIN' || user?.permissions?.includes('notifications')) && (
+            <SettingRow 
+              icon={BellRing} 
+              title="إدارة التنبيهات" 
+              subtitle="إرسال إشعارات ورسائل للعملاء" 
+              onClick={() => navigate('/notifications-manager')}
             />
           )}
           <SettingRow 
