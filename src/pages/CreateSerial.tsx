@@ -21,7 +21,7 @@ export default function CreateSerial() {
         setClients([]);
         return;
       }
-      const q = query(collection(db, 'clients'));
+      const q = query(collection(db, 'users'));
       const snapshot = await getDocs(q);
       const data: any[] = [];
       snapshot.forEach(doc => {

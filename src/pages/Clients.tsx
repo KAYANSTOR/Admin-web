@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, setDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { secondaryAuth } from '../lib/firebase';
 import { db } from '../lib/firebase';
 import { ArrowLeft, Search, Plus, Phone, Building2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -14,6 +16,8 @@ export default function Clients() {
   const [newPhone, setNewPhone] = useState('');
   const [newStore, setNewStore] = useState('');
   const [newCommission, setNewCommission] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -24,10 +28,16 @@ export default function Clients() {
   }, [location]);
 
   useEffect(() => {
-    const q = query(collection(db, 'clients'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'users'));
     return onSnapshot(q, (snapshot) => {
       const data: any[] = [];
-      snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+      snapshot.forEach(doc => {
+        const d = { id: doc.id, ...doc.data() };
+        if (d.role === 'NETWORK_OWNER' || (!d.role && d.storeName)) {
+           data.push(d);
+        }
+      });
+      data.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
       setClients(data);
     });
   }, []);
@@ -49,32 +59,43 @@ export default function Clients() {
       c.phone?.includes(search)
     );
 
+  
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim() || !newPhone.trim()) return;
+    if (!newName.trim() || !newPhone.trim() || !newPassword.trim() || !newEmail.trim()) return;
     try {
-      await addDoc(collection(db, 'clients'), {
+      const userCred = await createUserWithEmailAndPassword(secondaryAuth, newEmail, newPassword);
+      await setDoc(doc(db, 'users', userCred.user.uid), {
         name: newName,
         phone: newPhone,
+        email: newEmail,
         storeName: newStore,
         status: 'ACTIVE',
         isActive: true, // legacy
+        is_active: true, // new Android requirement
         commissionPercentage: parseFloat(newCommission) || 0,
+        commission_rate: parseFloat(newCommission) || 0, // new Android requirement
+        role: 'NETWORK_OWNER',
         createdAt: serverTimestamp(),
         deviceLimit: 3
       });
+      await secondaryAuth.signOut();
       setIsCreateModalOpen(false);
-      setNewName(''); setNewPhone(''); setNewStore(''); setNewCommission('');
-    } catch (err) {
+      setNewName(''); setNewPhone(''); setNewStore(''); setNewCommission(''); setNewPassword(''); setNewEmail('');
+    } catch (err: any) {
+      alert('خطأ في إنشاء الحساب: ' + err.message);
       console.error(err);
     }
   };
 
+  
   const changeStatus = async (client: any, newStatus: string) => {
     try {
-      await updateDoc(doc(db, 'clients', client.id), {
+      const isActive = ['ACTIVE', 'WARNING', 'GRACE_PERIOD'].includes(newStatus);
+      await updateDoc(doc(db, 'users', client.id), {
         status: newStatus,
-        isActive: ['ACTIVE', 'WARNING', 'GRACE_PERIOD'].includes(newStatus)
+        isActive: isActive,
+        is_active: isActive // new Android requirement
       });
       setStatusModalOpen(null);
     } catch (err) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, collectionGroup } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { ArrowLeft, TrendingUp } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -12,18 +12,21 @@ export default function Sales() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const q = query(collection(db, 'sales'), orderBy('timestamp', 'desc'));
+    const q = query(collectionGroup(db, 'sales'));
+    
     return onSnapshot(q, (snapshot) => {
-      const data: any[] = [];
+      let data: any[] = [];
       snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+      data.sort((a, b) => (b.createdAt || b.timestamp || 0) - (a.createdAt || a.timestamp || 0));
       setSales(data);
     });
+
   }, []);
 
   const filteredSales = sales.filter(sale => {
     if (activeTab === 2) return true;
     const now = new Date();
-    const timestamp = sale.timestamp || 0;
+    const timestamp = sale.createdAt || sale.timestamp || 0;
     if (activeTab === 0) {
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
       return timestamp >= todayStart;
@@ -35,7 +38,7 @@ export default function Sales() {
     return true;
   });
 
-  const totalAmount = filteredSales.reduce((sum, sale) => sum + parseFloat(sale.amount?.replace(',', '') || '0'), 0);
+  const totalAmount = filteredSales.reduce((sum, sale) => sum + (parseFloat(sale.faceValue) || parseFloat(sale.amount?.replace(',', '') || '0')), 0);
 
   return (
     <div className="bg-app-bg min-h-full pb-[100px]">
@@ -69,11 +72,11 @@ export default function Sales() {
             <React.Fragment key={sale.id}>
               <div className="flex justify-between items-center py-2">
                 <div>
-                  <div className="font-bold text-[16px] text-primary-dark">{sale.amount || '0'} <span className="text-[12px] text-gray-500">ر.س</span></div>
-                  <div className="text-[13px] text-gray-500 mt-1">{sale.description || 'عملية مبيعات جديدة'}</div>
+                  <div className="font-bold text-[16px] text-primary-dark">{sale.faceValue || sale.amount || '0'} <span className="text-[12px] text-gray-500">ر.س</span></div>
+                  <div className="text-[13px] text-gray-500 mt-1">{sale.saleType === 'POS' ? 'بيع عبر الصراف' : sale.saleType === 'DIRECT' ? 'بيع مباشر' : (sale.description || 'عملية مبيعات جديدة')} {sale.customerId ? ` - ${sale.customerId}` : ''}</div>
                 </div>
                 <div className="text-left text-[12px] text-gray-400 font-bold bg-app-bg px-2 py-1 rounded-lg">
-                  {new Date(sale.timestamp || 0).toLocaleDateString('ar-SA')}
+                  {new Date(sale.createdAt || sale.timestamp || 0).toLocaleDateString('ar-SA')}
                 </div>
               </div>
               {i < filteredSales.length - 1 && <div className="h-[1px] bg-gray-100" />}

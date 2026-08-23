@@ -14,13 +14,17 @@ export default function ClientProfile() {
   const [subscription, setSubscription] = useState<any>(null);
   const [commissions, setCommissions] = useState<any[]>([]);
   const [settlementModal, setSettlementModal] = useState<any>(null);
+  const [subEndDate, setSubEndDate] = useState('');
+  const [warningMsg, setWarningMsg] = useState('');
+  const [isSubModalOpen, setIsSubModalOpen] = useState(false);
+  const [isUpdatingSub, setIsUpdatingSub] = useState(false);
   const [settleAmount, setSettleAmount] = useState('');
   const [settleRef, setSettleRef] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
-    const unsub = onSnapshot(doc(db, 'clients', id), (doc) => {
+    const unsub = onSnapshot(doc(db, 'users', id), (doc) => {
       if (doc.exists()) {
         setClient({ id: doc.id, ...doc.data() });
       }
@@ -89,7 +93,7 @@ export default function ClientProfile() {
   const handleDeleteClient = async () => {
     if (window.confirm('هل أنت متأكد من حذف هذا العميل وجميع بياناته؟')) {
       try {
-        await deleteDoc(doc(db, 'clients', id!));
+        await deleteDoc(doc(db, 'users', id!));
         navigate('/clients');
       } catch (err) {
         console.error('Error deleting client', err);
@@ -123,12 +127,31 @@ export default function ClientProfile() {
     }
   };
 
+  
+  const handleUpdateSub = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingSub(true);
+    try {
+      await updateDoc(doc(db, 'users', client.id), {
+        subscription_end_date: subEndDate ? new Date(subEndDate).getTime() : null,
+        warning_message: warningMsg
+      });
+      setIsSubModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ');
+    } finally {
+      setIsUpdatingSub(false);
+    }
+  };
+
   const handleUpdateCommission = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!client?.id) return;
     try {
-      await updateDoc(doc(db, 'clients', client.id), {
-        commissionPercentage: parseFloat(editCommission) || 0
+      await updateDoc(doc(db, 'users', client.id), {
+        commissionPercentage: parseFloat(editCommission) || 0,
+        commission_rate: parseFloat(editCommission) || 0
       });
       setIsCommissionModalOpen(false);
     } catch (err) {
@@ -192,7 +215,46 @@ export default function ClientProfile() {
       </div>
       
       <div className="px-4 space-y-4">
-        {/* Subscription Card */}
+        
+        {/* Network App Settings (Android) */}
+        <div className="bg-white rounded-[24px] shadow-[0_2px_4px_rgba(0,0,0,0.05)] p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <h3 className="text-[16px] font-black text-primary-dark">إعدادات التطبيق (Android)</h3>
+            </div>
+            <button 
+              onClick={() => {
+                const existingDate = client.subscription_end_date ? new Date(client.subscription_end_date).toISOString().split('T')[0] : '';
+                setSubEndDate(existingDate);
+                setWarningMsg(client.warning_message || '');
+                setIsSubModalOpen(true);
+              }}
+              className="text-primary bg-primary/10 p-2 rounded-xl"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-3 bg-gray-50 rounded-xl p-4 border border-gray-100">
+            <div className="flex justify-between items-center">
+              <span className="text-[14px] text-gray-500">تاريخ انتهاء الاشتراك:</span>
+              <span className="text-[14px] font-bold text-gray-800">
+                {client.subscription_end_date ? new Date(client.subscription_end_date).toLocaleDateString('ar-SA') : 'غير محدد'}
+              </span>
+            </div>
+            {client.warning_message && (
+              <div className="pt-2 border-t border-gray-200">
+                <span className="text-[12px] text-orange-500 font-bold block mb-1">رسالة التحذير (3 أيام قبل الانتهاء):</span>
+                <span className="text-[13px] text-gray-700">{client.warning_message}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+
+        {/* Old Subscription Card */}
         <div className="bg-white rounded-[24px] shadow-[0_2px_4px_rgba(0,0,0,0.05)] p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">

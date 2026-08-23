@@ -3,11 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { ArrowLeft, Link as LinkIcon, MessageSquare, Save, CheckCircle2, Image as ImageIcon, Plus, Trash2, UploadCloud } from 'lucide-react';
+import { ArrowLeft, Link as LinkIcon, MessageSquare, Save, CheckCircle2, Image as ImageIcon, Plus, Trash2, UploadCloud, Shield } from 'lucide-react';
 
 export default function SystemSettings() {
   const navigate = useNavigate();
   
+  // States for Global App Settings
+  const [isAppActive, setIsAppActive] = useState(true);
+  const [maintenanceMsg, setMaintenanceMsg] = useState('');
+  const [isGlobalSaving, setIsGlobalSaving] = useState(false);
+  const [globalSaveSuccess, setGlobalSaveSuccess] = useState(false);
+
   // States for WebView URL
   const [webViewUrl, setWebViewUrl] = useState('');
   const [webViewPlacement, setWebViewPlacement] = useState('MAIN_SCREEN');
@@ -28,6 +34,15 @@ export default function SystemSettings() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
+        
+        const globalRef = doc(db, 'app_settings', 'global_config');
+        const globalSnap = await getDoc(globalRef);
+        if (globalSnap.exists()) {
+          const gData = globalSnap.data();
+          setIsAppActive(gData.is_app_active ?? true);
+          setMaintenanceMsg(gData.maintenance_message || '');
+        }
+
         const docRef = doc(db, 'settings', 'app_settings');
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -50,6 +65,25 @@ export default function SystemSettings() {
     };
     fetchSettings();
   }, []);
+
+  
+  const handleSaveGlobal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsGlobalSaving(true);
+    try {
+      await setDoc(doc(db, 'app_settings', 'global_config'), {
+        is_app_active: isAppActive,
+        maintenance_message: maintenanceMsg
+      }, { merge: true });
+      setGlobalSaveSuccess(true);
+      setTimeout(() => setGlobalSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ أثناء الحفظ');
+    } finally {
+      setIsGlobalSaving(false);
+    }
+  };
 
   const handleSaveUrl = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,6 +200,61 @@ export default function SystemSettings() {
 
       <div className="p-4 space-y-6">
         
+        
+        {/* Global Config Card */}
+        <div className="bg-white rounded-[24px] shadow-[0_2px_4px_rgba(0,0,0,0.05)] p-5">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-[16px] font-black text-primary-dark">حالة التطبيق العامة</h3>
+              <p className="text-[12px] text-gray-500 mt-0.5">إيقاف أو تشغيل تطبيق العملاء</p>
+            </div>
+          </div>
+          
+          <form onSubmit={handleSaveGlobal} className="space-y-5">
+            <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-100">
+              <div>
+                <div className="font-bold text-[14px] text-gray-800">التطبيق متاح للعملاء؟</div>
+                <div className="text-[12px] text-gray-500 mt-1">إذا تم الإيقاف سيطرد الجميع وتظهر رسالة الصيانة</div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsAppActive(!isAppActive)}
+                className={`w-12 h-7 rounded-full p-1 transition-colors relative ${isAppActive ? 'bg-primary' : 'bg-gray-200'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${isAppActive ? 'transform -translate-x-5' : 'transform translate-x-0'}`} />
+              </button>
+            </div>
+
+            {!isAppActive && (
+              <div>
+                <label className="block text-[13px] font-bold text-gray-700 mb-2">رسالة الصيانة</label>
+                <textarea 
+                  rows={2}
+                  placeholder="مثال: التطبيق قيد الصيانة، سنعود قريباً..." 
+                  className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px] resize-none"
+                  value={maintenanceMsg}
+                  onChange={e => setMaintenanceMsg(e.target.value)} 
+                />
+              </div>
+            )}
+            
+            <button 
+              type="submit" 
+              disabled={isGlobalSaving}
+              className={`w-full py-4 rounded-xl font-bold text-[15px] flex items-center justify-center gap-2 transition-colors ${globalSaveSuccess ? 'bg-icon-green text-white' : 'bg-primary text-white disabled:opacity-50'}`}
+            >
+              {globalSaveSuccess ? (
+                <><CheckCircle2 className="w-5 h-5" />تم الحفظ بنجاح</>
+              ) : (
+                <><Save className="w-5 h-5" />{isGlobalSaving ? 'جاري الحفظ...' : 'حفظ حالة التطبيق'}</>
+              )}
+            </button>
+          </form>
+        </div>
+
         {/* WebView Control Card */}
         <div className="bg-white rounded-[24px] shadow-[0_2px_4px_rgba(0,0,0,0.05)] p-5">
           <div className="flex items-center gap-3 mb-6">
