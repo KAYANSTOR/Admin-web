@@ -1,115 +1,93 @@
-import React, { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { ArrowLeft, Ban, Play, Trash2 } from 'lucide-react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { Users, ArrowLeft, ShieldOff, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
 
 export default function Subscriptions() {
-  const [subs, setSubs] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState(0); // 0 = Active, 1 = Trial/Pending
+  const [clients, setClients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Note: No createdAt in current mock docs so we just fetch all
-    const q = query(collection(db, 'subscriptions'));
-    return onSnapshot(q, (snapshot) => {
-      const data: any[] = [];
-      snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
-      setSubs(data);
-    });
+    const fetchClients = async () => {
+      try {
+        const q = query(collection(db, 'users'), where('role', '==', 'NETWORK_OWNER'));
+        const snap = await getDocs(q);
+        const data: any[] = [];
+        snap.forEach(d => {
+          data.push({ id: d.id, ...d.data() });
+        });
+        setClients(data);
+      } catch (e) {
+        console.error(e);
+      }
+      setLoading(false);
+    };
+    fetchClients();
   }, []);
 
-  
-  const toggleStatus = async (sub: any) => {
-    try {
-      const newStatus = sub.statusTypeString === 'SUCCESS' ? 'WARNING' : 'SUCCESS';
-      await updateDoc(doc(db, 'subscriptions', sub.id), {
-        statusTypeString: newStatus,
-        statusText: newStatus === 'SUCCESS' ? 'نشط' : 'مجمد'
-      });
-    } catch (e) {
-      console.error('Error toggling status', e);
-    }
-  };
-
-  const deleteSub = async (id: string) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا الاشتراك؟')) {
-      try {
-        await deleteDoc(doc(db, 'subscriptions', id));
-      } catch (e) {
-        console.error('Error deleting subscription', e);
-      }
-    }
-  };
-
-  const filteredSubs = subs.filter(sub => {
-    const isSuccess = sub.statusTypeString === 'SUCCESS';
-    return activeTab === 0 ? isSuccess : !isSuccess;
-  });
-
   return (
-    <div className="bg-app-bg min-h-full pb-[100px]">
-      <div className="bg-surface px-4 py-4 flex items-center justify-between sticky top-0 z-10 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-        <button onClick={() => navigate(-1)} className="p-2 active:scale-95 transition-transform">
-          <ArrowLeft className="w-6 h-6 text-primary-dark" />
+    <div className="bg-app-bg min-h-full pb-24">
+      {/* Header */}
+      <div className="bg-gradient-to-b from-primary-dark to-primary px-6 pt-6 pb-12 rounded-b-[40px] relative">
+        <button 
+          onClick={() => navigate('/dashboard')}
+          className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white mb-4 hover:bg-white/20 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-[18px] font-black text-primary-dark">الاشتراكات</h1>
-        <div className="w-10"></div>
+        <div className="flex items-center gap-3 text-white">
+          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+            <Users className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black">إدارة الاشتراكات</h1>
+            <p className="text-white/80 text-sm">متابعة حالة الحسابات وتاريخ التجديد</p>
+          </div>
+        </div>
       </div>
 
-      <div className="p-4 space-y-4">
-        <div className="flex bg-gray-200/50 rounded-xl p-1">
-          <button 
-            onClick={() => setActiveTab(0)}
-            className={`flex-1 py-2 text-[14px] font-bold rounded-lg transition-colors ${activeTab === 0 ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
-          >
-            فعالة
-          </button>
-          <button 
-            onClick={() => setActiveTab(1)}
-            className={`flex-1 py-2 text-[14px] font-bold rounded-lg transition-colors ${activeTab === 1 ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
-          >
-            تجريبية / معلقة
-          </button>
-        </div>
-
-        <div className="bg-white rounded-[20px] shadow-[0_2px_4px_rgba(0,0,0,0.05)] p-4 space-y-4">
-          {filteredSubs.length > 0 ? filteredSubs.map((sub, i) => (
-            <React.Fragment key={sub.id}>
-              <div className="flex justify-between items-center py-2">
-                <div>
-                  <div className="font-bold text-[15px] text-primary-dark">{sub.plan || 'خطة غير معروفة'}</div>
-                  <div className="text-[13px] text-gray-500 mt-1">{sub.statusText || 'لا توجد تفاصيل للحالة'}</div>
-                </div>
-                <div className="text-left">
-                  
-                  <div className={`text-[11px] font-bold px-3 py-1.5 rounded-full ${sub.statusTypeString === 'SUCCESS' ? 'bg-icon-green/10 text-icon-green' : 'bg-icon-orange/10 text-icon-orange'}`}>
-                    {sub.statusTypeString === 'SUCCESS' ? 'فعال' : 'تجريبي / معلق'}
+      <div className="px-6 -mt-6 relative z-10">
+        <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] overflow-hidden">
+          {loading ? (
+            <div className="p-8 text-center text-gray-500">جاري التحميل...</div>
+          ) : clients.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">لا يوجد اشتراكات</div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {clients.map(client => {
+                const isExpired = client.subscription_end_date && client.subscription_end_date < Date.now();
+                return (
+                  <div 
+                    key={client.id} 
+                    className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => navigate(`/clients/${client.id}`)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold">
+                        {client.name?.charAt(0) || '?'}
+                      </div>
+                      <div>
+                        <div className="font-bold text-[14px] text-primary-dark">{client.name}</div>
+                        <div className="text-[12px] text-gray-500">
+                          {client.subscription_end_date ? format(new Date(client.subscription_end_date), 'dd/MM/yyyy') : 'غير محدد'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-left flex items-center gap-2">
+                      {client.is_active && !isExpired ? (
+                        <CheckCircle2 className="w-5 h-5 text-icon-green" />
+                      ) : (
+                        <ShieldOff className="w-5 h-5 text-red-500" />
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
-              
-              <div className="flex justify-end gap-2 mt-2">
-                <button 
-                  onClick={() => toggleStatus(sub)}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-bold ${sub.statusTypeString === 'SUCCESS' ? 'bg-orange-50 text-orange-500' : 'bg-green-50 text-green-600'}`}
-                >
-                  {sub.statusTypeString === 'SUCCESS' ? <Ban className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                  {sub.statusTypeString === 'SUCCESS' ? 'تجميد' : 'تفعيل'}
-                </button>
-                <button 
-                  onClick={() => deleteSub(sub.id)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-red-50 text-red-500"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  حذف
-                </button>
-              </div>
-
-              {i < filteredSubs.length - 1 && <div className="h-[1px] bg-gray-100" />}
-            </React.Fragment>
-          )) : (
-            <div className="text-center py-8 text-gray-500 text-[14px]">لا توجد اشتراكات مطابقة.</div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>

@@ -3,8 +3,8 @@
     {
       "name": "projects/netcard-pro/databases/(default)/documents/users/RtbGzWMJzdLtWwory5xT",
       "fields": {
-        "role": {
-          "stringValue": "ADMIN"
+        "name": {
+          "stringValue": "Jar"
         },
         "isActive": {
           "booleanValue": true
@@ -36,14 +36,14 @@
             ]
           }
         },
-        "name": {
-          "stringValue": "Jar"
+        "pin": {
+          "stringValue": "0808"
+        },
+        "role": {
+          "stringValue": "ADMIN"
         },
         "phone": {
           "stringValue": "773303455"
-        },
-        "pin": {
-          "stringValue": "0808"
         }
       },
       "createTime": "2026-08-24T00:18:08.265795Z",

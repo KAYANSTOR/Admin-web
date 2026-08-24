@@ -3,23 +3,20 @@
     {
       "name": "projects/netcard-pro/databases/(default)/documents/clients/rlWb73HotHYzLSMEnWwGpvIK4aS2",
       "fields": {
-        "deviceLimit": {
-          "integerValue": "3"
-        },
-        "pin": {
-          "stringValue": "0000"
-        },
         "status": {
           "stringValue": "ACTIVE"
         },
-        "role": {
-          "stringValue": "NETWORK_OWNER"
-        },
-        "warning_message": {
-          "stringValue": "سوف يتم اقفال التطبيق اذا لم تحاسب"
-        },
         "createdAt": {
           "timestampValue": "2026-08-24T01:09:53.076Z"
+        },
+        "commissionPercentage": {
+          "integerValue": "10"
+        },
+        "storeName": {
+          "stringValue": "الشيباني"
+        },
+        "role": {
+          "stringValue": "NETWORK_OWNER"
         },
         "isActive": {
           "booleanValue": true
@@ -27,26 +24,29 @@
         "subscription_end_date": {
           "integerValue": "1787702400000"
         },
-        "is_active": {
-          "booleanValue": true
+        "pin": {
+          "stringValue": "0000"
         },
-        "storeName": {
-          "stringValue": "الشيباني"
-        },
-        "commission_rate": {
-          "integerValue": "10"
-        },
-        "phone": {
-          "stringValue": "777585000"
+        "deviceLimit": {
+          "integerValue": "3"
         },
         "email": {
           "stringValue": "777585000@kayansoft.com"
         },
-        "commissionPercentage": {
+        "phone": {
+          "stringValue": "777585000"
+        },
+        "commission_rate": {
           "integerValue": "10"
+        },
+        "warning_message": {
+          "stringValue": "سوف يتم اقفال التطبيق اذا لم تحاسب"
         },
         "name": {
           "stringValue": "بسام"
+        },
+        "is_active": {
+          "booleanValue": true
         }
       },
       "createTime": "2026-08-24T01:09:53.145191Z",

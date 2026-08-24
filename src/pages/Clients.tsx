@@ -30,7 +30,7 @@ export default function Clients() {
   }, [location]);
 
   useEffect(() => {
-    const q = query(collection(db, 'clients'));
+    const q = query(collection(db, 'users'));
     return onSnapshot(q, (snapshot) => {
       const data: any[] = [];
       snapshot.forEach(doc => {
@@ -85,7 +85,7 @@ export default function Clients() {
 
     try {
       const userCred = await createUserWithEmailAndPassword(secondaryAuth, generatedEmail, generatedPassword);
-      await setDoc(doc(db, 'clients', userCred.user.uid), {
+      await setDoc(doc(db, 'users', userCred.user.uid), {
         name: newName.trim(),
         phone: newPhone.trim(),
         pin: newPassword.trim(),
@@ -116,10 +116,26 @@ export default function Clients() {
   };
 
   
+  
+  const promoteToAdmin = async (client: any) => {
+    if (!window.confirm(`هل أنت متأكد من ترقية ${client.name} إلى مشرف؟
+لن يظهر هذا الحساب في قائمة العملاء بعد الآن.`)) return;
+    try {
+      await updateDoc(doc(db, 'users', client.id), {
+        role: 'ADMIN',
+        permissions: ['clients', 'licenses', 'serials', 'commissions', 'subscriptions', 'employees', 'sales']
+      });
+      alert('تم الترقية بنجاح!');
+    } catch (e) {
+      console.error(e);
+      alert('حدث خطأ');
+    }
+  };
+
   const changeStatus = async (client: any, newStatus: string) => {
     try {
       const isActive = ['ACTIVE', 'WARNING', 'GRACE_PERIOD'].includes(newStatus);
-      await updateDoc(doc(db, 'clients', client.id), {
+      await updateDoc(doc(db, 'users', client.id), {
         status: newStatus,
         isActive: isActive,
         is_active: isActive // new Android requirement
@@ -220,6 +236,13 @@ export default function Clients() {
                   >
                     تغيير الحالة
                   </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); promoteToAdmin(client); }}
+                    className="text-[12px] font-bold text-white bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded-lg transition-colors mt-1"
+                  >
+                    ترقية لمشرف
+                  </button>
+
                 </div>
               </div>
               {i < filteredClients.length - 1 && <div className="h-[1px] bg-gray-100" />}

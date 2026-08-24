@@ -23,7 +23,6 @@ export default function AppLayout() {
   );
   
   const middleIndex = Math.floor(visibleNavItems.length / 2);
-
   const hasAnyQuickAction = user?.role === 'ADMIN' || 
     user?.permissions?.some(p => ['serials', 'subscriptions', 'commissions', 'employees'].includes(p));
 

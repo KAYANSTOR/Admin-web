@@ -6,7 +6,6 @@ import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Clients from './pages/Clients';
 import ClientProfile from './pages/ClientProfile';
-
 import Settings from './pages/Settings';
 import SystemSettings from './pages/SystemSettings';
 import NotificationsManager from './pages/NotificationsManager';
@@ -44,7 +43,6 @@ export default function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="clients" element={<ProtectedRoute reqPerm="clients"><Clients /></ProtectedRoute>} />
             <Route path="clients/:id" element={<ProtectedRoute reqPerm="clients"><ClientProfile /></ProtectedRoute>} />
-            
             <Route path="settings" element={<Settings />} />
             <Route path="system-settings" element={<ProtectedRoute reqPerm="settings"><SystemSettings /></ProtectedRoute>} />
             <Route path="notifications-manager" element={<ProtectedRoute reqPerm="notifications"><NotificationsManager /></ProtectedRoute>} />

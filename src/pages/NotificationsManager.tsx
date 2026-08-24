@@ -40,7 +40,7 @@ export default function NotificationsManager() {
       // 2. Send Push Notification (FCM / Queue)
       if (notificationType === 'PUSH' || notificationType === 'BOTH') {
         // 1. Save to a log in Firestore
-        await addDoc(collection(db, 'notifications_queue'), {
+        await addDoc(collection(db, 'notifications'), {
           title: title.trim(),
           message: message.trim(),
           target: targetAudience,
