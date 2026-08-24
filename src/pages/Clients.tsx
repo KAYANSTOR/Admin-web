@@ -62,13 +62,19 @@ export default function Clients() {
   
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim() || !newPhone.trim() || !newPassword.trim() || !newEmail.trim()) return;
+    if (!newName.trim() || !newPhone.trim() || !newPassword.trim()) return;
+    
+    // Auto-generate email and password to match AuthContext login logic
+    const generatedEmail = `${newPhone}@kayansoft.com`;
+    const generatedPassword = `${newPassword}kayan`;
+
     try {
-      const userCred = await createUserWithEmailAndPassword(secondaryAuth, newEmail, newPassword);
+      const userCred = await createUserWithEmailAndPassword(secondaryAuth, generatedEmail, generatedPassword);
       await setDoc(doc(db, 'users', userCred.user.uid), {
         name: newName,
         phone: newPhone,
-        email: newEmail,
+        pin: newPassword, // Save the 4-digit pin so it can be retrieved if needed (optional, but matches existing data structure)
+        email: generatedEmail,
         storeName: newStore,
         status: 'ACTIVE',
         isActive: true, // legacy
@@ -210,6 +216,7 @@ export default function Clients() {
             <form onSubmit={handleCreateClient} className="space-y-4">
               <input required type="text" placeholder="اسم العميل" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newName} onChange={e => setNewName(e.target.value)} />
               <input required type="tel" placeholder="رقم الهاتف" dir="ltr" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-right text-[14px]" value={newPhone} onChange={e => setNewPhone(e.target.value)} />
+              <input required type="text" placeholder="الرمز السري (4 أرقام)" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newPassword} onChange={e => setNewPassword(e.target.value)} maxLength={4} />
               <input type="text" placeholder="اسم المتجر (اختياري)" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newStore} onChange={e => setNewStore(e.target.value)} />
               <input type="number" step="0.01" min="0" max="100" placeholder="نسبة العمولة (%)" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newCommission} onChange={e => setNewCommission(e.target.value)} />
               <div className="flex gap-3 pt-4">
