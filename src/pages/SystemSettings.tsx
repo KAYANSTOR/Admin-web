@@ -79,7 +79,7 @@ export default function SystemSettings() {
       setTimeout(() => setGlobalSaveSuccess(false), 3000);
     } catch (err) {
       console.error(err);
-      alert('حدث خطأ أثناء الحفظ');
+      // Removed alert
     } finally {
       setIsGlobalSaving(false);
     }
@@ -163,7 +163,7 @@ export default function SystemSettings() {
       setBanners(updatedBanners);
     } catch (err) {
       console.error('Error uploading banner:', err);
-      alert('حدث خطأ أثناء رفع الصورة');
+      // Removed alert
     } finally {
       setIsBannerSaving(false);
       e.target.value = '';

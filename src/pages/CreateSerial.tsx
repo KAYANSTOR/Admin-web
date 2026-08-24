@@ -21,11 +21,12 @@ export default function CreateSerial() {
         setClients([]);
         return;
       }
-      const q = query(collection(db, 'users'));
+      const q = query(collection(db, 'clients'));
       const snapshot = await getDocs(q);
       const data: any[] = [];
       snapshot.forEach(doc => {
-        const client = { id: doc.id, ...doc.data() };
+        const client: any = { id: doc.id, ...doc.data() };
+        if (client.role === 'ADMIN' || client.role === 'STAFF') return;
         // Match by phone, name or id
         if (
           client.phone?.includes(searchQuery) || 

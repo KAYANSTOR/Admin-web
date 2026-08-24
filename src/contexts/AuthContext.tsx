@@ -45,8 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const q = query(usersRef, where("phone", "==", firebaseUser.email?.split('@')[0]));
           
           unsubscribeDoc = onSnapshot(q, (snapshot) => {
-            
-            
             if (!snapshot.empty) {
               const uData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as UserProfile;
               
@@ -56,13 +54,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   setUser(null);
                   localStorage.removeItem('kayan_user');
                   setErrorMsg('تم إيقاف حسابك من قبل الإدارة.');
-                
-          
-          }, (error) => {
-            console.error("Firestore onSnapshot permission error:", error);
-            setErrorMsg("خطأ في صلاحيات قاعدة البيانات (Firestore). يرجى التأكد من تحديث قواعد الأمان كما هو موضح.");
-            setLoading(false);
-          });
+                });
+              } else if (uData.role !== 'ADMIN' && uData.role !== 'STAFF') {
+                // Not authorized
+                firebaseSignOut(auth).then(() => {
+                  setUser(null);
+                  localStorage.removeItem('kayan_user');
+                  setErrorMsg('عذراً، هذا الحساب للعملاء فقط ولا يمكنه الدخول للوحة التحكم.');
+                });
               } else {
                 setUser(uData);
                 localStorage.setItem('kayan_user', JSON.stringify(uData));
@@ -79,6 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return null;
               });
             }
+          }, (error) => {
+            console.error("Firestore onSnapshot permission error:", error);
+            setErrorMsg("خطأ في صلاحيات قاعدة البيانات (Firestore). يرجى التأكد من تحديث قواعد الأمان كما هو موضح.");
+            setLoading(false);
           });
           
         } catch (err) {
@@ -141,8 +144,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (qs.empty) {
               await addDoc(collection(db, 'users'), adminDoc);
             }
-          } catch (createError) {
-             console.error("Admin creation failed", createError);
+          } catch (createError: any) {
+             if (createError.code !== 'auth/email-already-in-use') {
+               console.error("Admin creation failed", createError);
+             }
              throw createError; // throw actual error for UI
           }
         } else {
@@ -180,6 +185,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error('Account suspended');
         }
         
+        if (userData.role !== 'ADMIN' && userData.role !== 'STAFF') {
+          await firebaseSignOut(auth);
+          setErrorMsg('عذراً، هذا الحساب للعملاء فقط ولا يمكنه الدخول للوحة التحكم.');
+          throw new Error('Not authorized');
+        }
+        
         const newUser = { id: docSnap.id, ...userData };
         setUser(newUser);
         localStorage.setItem('kayan_user', JSON.stringify(newUser));
@@ -189,9 +200,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Invalid credentials (Firestore mismatch)');
       }
     } catch (e: any) {
-      console.error(e);
+      if (e.code !== 'auth/invalid-credential' && e.code !== 'auth/email-already-in-use' && e.code !== 'auth/user-not-found' && e.code !== 'auth/wrong-password') {
+        console.error("Login Error:", e);
+      }
       await firebaseSignOut(auth).catch(() => {});
-      setErrorMsg(e.message === 'Account suspended' ? 'تم إيقاف هذا الحساب من قبل الإدارة.' : (e.message === 'Invalid credentials (Firestore mismatch)' ? 'الحساب غير موجود في قاعدة البيانات' : 'حدث خطأ في تسجيل الدخول. تأكد من صحة البيانات.'));
+      if (e.message === 'Account suspended') {
+        setErrorMsg('تم إيقاف هذا الحساب من قبل الإدارة.');
+      } else if (e.message === 'Not authorized') {
+        setErrorMsg('عذراً، هذا الحساب للعملاء فقط ولا يمكنه الدخول للوحة التحكم.');
+      } else if (e.message === 'Invalid credentials (Firestore mismatch)') {
+        setErrorMsg('الحساب غير موجود في قاعدة البيانات');
+      } else if (!errorMsg) {
+        setErrorMsg('حدث خطأ في تسجيل الدخول. تأكد من صحة البيانات.');
+      }
       throw e;
     }
   };

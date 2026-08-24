@@ -34,17 +34,21 @@ export default function Dashboard() {
     let unsubSales = () => {};
 
     if (hasPerm('clients')) {
-      unsubClients = onSnapshot(collection(db, 'users'), (snapshot) => {
+      unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
         let activeCount = 0;
         let latest: any[] = [];
         snapshot.forEach(doc => {
           const d = doc.data();
-          if (d.role === 'NETWORK_OWNER' || (!d.role && d.storeName)) {
+          if (d.role !== 'ADMIN' && d.role !== 'STAFF') {
             if (d.isActive || d.is_active) activeCount++;
             latest.push({ id: doc.id, ...d });
           }
         });
-        latest.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+        latest.sort((a, b) => {
+          const timeA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : (a.createdAt?.toMillis?.() || 0);
+          const timeB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : (b.createdAt?.toMillis?.() || 0);
+          return timeB - timeA;
+        });
         setLatestClients(latest.slice(0, 5));
         setMetrics(prev => ({ ...prev, activeClients: activeCount }));
       });

@@ -30,16 +30,20 @@ export default function Clients() {
   }, [location]);
 
   useEffect(() => {
-    const q = query(collection(db, 'users'));
+    const q = query(collection(db, 'clients'));
     return onSnapshot(q, (snapshot) => {
       const data: any[] = [];
       snapshot.forEach(doc => {
-        const d = { id: doc.id, ...doc.data() };
+        const d: any = { id: doc.id, ...doc.data() };
         if (d.role !== 'ADMIN' && d.role !== 'STAFF') {
-           data.push(d);
+          data.push(d);
         }
       });
-      data.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      data.sort((a, b) => {
+        const timeA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : (a.createdAt?.toMillis?.() || 0);
+        const timeB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : (b.createdAt?.toMillis?.() || 0);
+        return timeB - timeA;
+      });
       setClients(data);
     });
   }, []);
@@ -81,7 +85,7 @@ export default function Clients() {
 
     try {
       const userCred = await createUserWithEmailAndPassword(secondaryAuth, generatedEmail, generatedPassword);
-      await setDoc(doc(db, 'users', userCred.user.uid), {
+      await setDoc(doc(db, 'clients', userCred.user.uid), {
         name: newName.trim(),
         phone: newPhone.trim(),
         pin: newPassword.trim(),
@@ -100,10 +104,10 @@ export default function Clients() {
       setIsCreateModalOpen(false);
       setNewName(''); setNewPhone(''); setNewStore(''); setNewCommission(''); setNewPassword(''); setNewEmail('');
     } catch (err: any) {
-      console.error(err);
       if (err.code === 'auth/email-already-in-use') {
         setCreateError('رقم الهاتف هذا مسجل مسبقاً في النظام!');
       } else {
+        console.error(err);
         setCreateError('خطأ: ' + err.message);
       }
     } finally {
@@ -115,7 +119,7 @@ export default function Clients() {
   const changeStatus = async (client: any, newStatus: string) => {
     try {
       const isActive = ['ACTIVE', 'WARNING', 'GRACE_PERIOD'].includes(newStatus);
-      await updateDoc(doc(db, 'users', client.id), {
+      await updateDoc(doc(db, 'clients', client.id), {
         status: newStatus,
         isActive: isActive,
         is_active: isActive // new Android requirement

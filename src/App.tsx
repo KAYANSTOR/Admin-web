@@ -1,3 +1,4 @@
+import { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AppLayout from './components/layout/AppLayout';
@@ -16,7 +17,7 @@ import Serials from './pages/Serials';
 import CreateSerial from './pages/CreateSerial';
 import Employees from './pages/Employees';
 
-function ProtectedRoute({ children, reqPerm }: { children: React.ReactNode, reqPerm?: string }) {
+function ProtectedRoute({ children, reqPerm }: { children: ReactNode, reqPerm?: string }) {
   const { user, loading } = useAuth();
   
   if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;

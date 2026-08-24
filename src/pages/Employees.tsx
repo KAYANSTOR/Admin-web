@@ -29,6 +29,8 @@ export default function Employees() {
   const [newPermissions, setNewPermissions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [modalError, setModalError] = useState('');
   
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -42,7 +44,12 @@ export default function Employees() {
     const q = query(collection(db, 'users'));
     return onSnapshot(q, (snapshot) => {
       const data: any[] = [];
-      snapshot.forEach(d => data.push({ ...d.data(), id: d.id }));
+      snapshot.forEach(d => {
+        const u: any = { ...d.data(), id: d.id };
+        if (u.role === 'ADMIN' || u.role === 'STAFF') {
+          data.push(u);
+        }
+      });
       setEmployees(data);
     });
   }, [user, navigate]);
@@ -107,11 +114,11 @@ export default function Employees() {
       
       setIsModalOpen(false);
     } catch (err: any) {
-      console.error(err);
       if (err.code === 'auth/email-already-in-use') {
-        alert('رقم الجوال مسجل مسبقاً في النظام.');
+        setModalError('رقم الجوال مسجل مسبقاً في النظام.');
       } else {
-        alert('حدث خطأ أثناء الحفظ: ' + (err.message || 'خطأ غير معروف'));
+        console.error(err);
+        setModalError('حدث خطأ أثناء الحفظ: ' + (err.message || 'خطأ غير معروف'));
       }
     } finally {
       setIsLoading(false);
@@ -132,7 +139,7 @@ export default function Employees() {
       });
     } catch (err: any) {
       console.error(err);
-      alert('تعذر تغيير الحالة: ' + err.message);
+      setErrorMsg('تعذر تغيير الحالة: ' + err.message);
     }
   };
 
@@ -144,9 +151,9 @@ export default function Employees() {
     } catch (err: any) {
       console.error("Delete Error details:", err);
       if (err.code === 'permission-denied') {
-         alert('تعذر الحذف: الصلاحيات لا تسمح لك بحذف هذا المستخدم.');
+         setErrorMsg('تعذر الحذف: الصلاحيات لا تسمح لك بحذف هذا المستخدم.');
       } else {
-         alert('تعذر الحذف: ' + (err.message || 'خطأ غير معروف'));
+         setErrorMsg('تعذر الحذف: ' + (err.message || 'خطأ غير معروف'));
       }
       setDeleteConfirmId(null);
     }
@@ -163,6 +170,15 @@ export default function Employees() {
           <Plus className="w-6 h-6 text-primary" />
         </button>
       </div>
+
+      {errorMsg && (
+        <div className="m-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-[14px] text-center font-bold relative">
+          <button onClick={() => setErrorMsg('')} className="absolute left-2 top-2 text-red-400">
+            <X className="w-4 h-4" />
+          </button>
+          {errorMsg}
+        </div>
+      )}
 
       <div className="p-4 space-y-4">
         <div className="bg-white rounded-[20px] shadow-[0_2px_4px_rgba(0,0,0,0.05)] p-4 space-y-4">
@@ -230,6 +246,11 @@ export default function Employees() {
             <h2 className="font-black text-[18px] text-primary-dark mb-6 text-center">
               {editingEmp ? 'تعديل بيانات الموظف' : 'إضافة موظف جديد'}
             </h2>
+            {modalError && (
+              <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm text-center font-bold">
+                {modalError}
+              </div>
+            )}
             <form onSubmit={handleSave} className="space-y-4">
               <input required type="text" placeholder="الاسم كامل" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newName} onChange={e => setNewName(e.target.value)} />
               <input required type="tel" dir="ltr" disabled={!!editingEmp} placeholder="رقم الجوال" className={`w-full p-3.5 border border-gray-200 rounded-xl outline-none focus:border-primary text-right text-[14px] ${editingEmp ? 'bg-gray-100 text-gray-500' : 'bg-app-bg'}`} value={newPhone} onChange={e => setNewPhone(e.target.value)} />

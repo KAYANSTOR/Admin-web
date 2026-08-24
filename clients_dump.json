@@ -1,0 +1,56 @@
+{
+  "documents": [
+    {
+      "name": "projects/netcard-pro/databases/(default)/documents/clients/rlWb73HotHYzLSMEnWwGpvIK4aS2",
+      "fields": {
+        "deviceLimit": {
+          "integerValue": "3"
+        },
+        "pin": {
+          "stringValue": "0000"
+        },
+        "status": {
+          "stringValue": "ACTIVE"
+        },
+        "role": {
+          "stringValue": "NETWORK_OWNER"
+        },
+        "warning_message": {
+          "stringValue": "سوف يتم اقفال التطبيق اذا لم تحاسب"
+        },
+        "createdAt": {
+          "timestampValue": "2026-08-24T01:09:53.076Z"
+        },
+        "isActive": {
+          "booleanValue": true
+        },
+        "subscription_end_date": {
+          "integerValue": "1787702400000"
+        },
+        "is_active": {
+          "booleanValue": true
+        },
+        "storeName": {
+          "stringValue": "الشيباني"
+        },
+        "commission_rate": {
+          "integerValue": "10"
+        },
+        "phone": {
+          "stringValue": "777585000"
+        },
+        "email": {
+          "stringValue": "777585000@kayansoft.com"
+        },
+        "commissionPercentage": {
+          "integerValue": "10"
+        },
+        "name": {
+          "stringValue": "بسام"
+        }
+      },
+      "createTime": "2026-08-24T01:09:53.145191Z",
+      "updateTime": "2026-08-24T01:11:05.520534Z"
+    }
+  ]
+}

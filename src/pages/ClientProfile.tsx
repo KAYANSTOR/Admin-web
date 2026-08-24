@@ -33,7 +33,7 @@ export default function ClientProfile() {
 
   useEffect(() => {
     if (!id) return;
-    const unsub = onSnapshot(doc(db, 'users', id), (doc) => {
+    const unsub = onSnapshot(doc(db, 'clients', id), (doc) => {
       if (doc.exists()) {
         setClient({ id: doc.id, ...doc.data() });
       }
@@ -102,7 +102,7 @@ export default function ClientProfile() {
   const handleDeleteClient = async () => {
     if (window.confirm('هل أنت متأكد من حذف هذا العميل وجميع بياناته؟')) {
       try {
-        await deleteDoc(doc(db, 'users', id!));
+        await deleteDoc(doc(db, 'clients', id!));
         navigate('/clients');
       } catch (err) {
         console.error('Error deleting client', err);
@@ -133,12 +133,17 @@ export default function ClientProfile() {
             await updatePassword(userCred.user, `${editPin.trim()}kayan`);
           }
           await secondaryAuth.signOut();
-        } catch (authErr) {
+        } catch (authErr: any) {
+           if (authErr.code === 'auth/email-already-in-use') {
+             setProfileError('رقم الهاتف هذا مسجل مسبقاً لحساب آخر!');
+             setIsUpdatingProfile(false);
+             return;
+           }
            console.warn("Could not update auth credentials (might be missing or legacy). Updating Firestore only.", authErr);
         }
       }
 
-      await updateDoc(doc(db, 'users', client.id), {
+      await updateDoc(doc(db, 'clients', client.id), {
         name: editName.trim(),
         phone: editPhone.trim(),
         pin: editPin.trim(),
@@ -186,7 +191,7 @@ export default function ClientProfile() {
     e.preventDefault();
     setIsUpdatingSub(true);
     try {
-      await updateDoc(doc(db, 'users', client.id), {
+      await updateDoc(doc(db, 'clients', client.id), {
         subscription_end_date: subEndDate ? new Date(subEndDate).getTime() : null,
         warning_message: warningMsg
       });
@@ -203,7 +208,7 @@ export default function ClientProfile() {
     e.preventDefault();
     if (!client?.id) return;
     try {
-      await updateDoc(doc(db, 'users', client.id), {
+      await updateDoc(doc(db, 'clients', client.id), {
         commissionPercentage: parseFloat(editCommission) || 0,
         commission_rate: parseFloat(editCommission) || 0
       });
