@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, collection, query, where, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, secondaryAuth } from '../lib/firebase';
+import { signInWithEmailAndPassword, updatePassword, updateEmail } from 'firebase/auth';
 import { ArrowRight, CheckCircle2, X, Wallet, CreditCard, Activity, Coins, User, Phone, Building2, Percent, Edit2, ChevronLeft, Trash2 } from 'lucide-react';
 
 export default function ClientProfile() {
@@ -21,6 +22,14 @@ export default function ClientProfile() {
   const [settleAmount, setSettleAmount] = useState('');
   const [settleRef, setSettleRef] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editPin, setEditPin] = useState('');
+  const [editStore, setEditStore] = useState('');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [profileError, setProfileError] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -101,6 +110,51 @@ export default function ClientProfile() {
     }
   };
 
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim() || !editPhone.trim() || !editPin.trim()) return;
+    if (editPin.length !== 4) {
+      setProfileError('الرمز السري يجب أن يكون 4 أرقام');
+      return;
+    }
+    
+    setIsUpdatingProfile(true);
+    setProfileError('');
+    try {
+      if (editPhone !== client.phone || editPin !== client.pin) {
+        const oldEmail = `${client.phone}@kayansoft.com`;
+        const oldPassword = `${client.pin}kayan`;
+        try {
+          const userCred = await signInWithEmailAndPassword(secondaryAuth, oldEmail, oldPassword);
+          if (editPhone !== client.phone) {
+            await updateEmail(userCred.user, `${editPhone.trim()}@kayansoft.com`);
+          }
+          if (editPin !== client.pin) {
+            await updatePassword(userCred.user, `${editPin.trim()}kayan`);
+          }
+          await secondaryAuth.signOut();
+        } catch (authErr) {
+           console.warn("Could not update auth credentials (might be missing or legacy). Updating Firestore only.", authErr);
+        }
+      }
+
+      await updateDoc(doc(db, 'users', client.id), {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        pin: editPin.trim(),
+        storeName: editStore.trim(),
+        email: `${editPhone.trim()}@kayansoft.com`
+      });
+      
+      setIsEditProfileOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      setProfileError(err.message);
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
   const handleSettle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!settlementModal || !settleAmount) return;
@@ -177,6 +231,18 @@ export default function ClientProfile() {
           
           <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
             <StatusBadge status={currentStatus} />
+            <button 
+              onClick={() => {
+                setEditName(client.name || '');
+                setEditPhone(client.phone || '');
+                setEditPin(client.pin || '');
+                setEditStore(client.storeName || '');
+                setIsEditProfileOpen(true);
+              }} 
+              className="p-2 bg-white/20 hover:bg-white/40 transition-colors rounded-full backdrop-blur-sm text-white"
+            >
+              <Edit2 className="w-5 h-5" />
+            </button>
             <button onClick={handleDeleteClient} className="p-2 bg-white/20 hover:bg-red-500/80 transition-colors rounded-full backdrop-blur-sm text-white">
               <Trash2 className="w-5 h-5" />
             </button>
@@ -444,6 +510,80 @@ export default function ClientProfile() {
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="flex-1 bg-primary text-white py-3.5 rounded-xl font-bold text-[15px]">حفظ</button>
                 <button type="button" onClick={() => setIsCommissionModalOpen(false)} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold text-[15px]">إلغاء</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isSubModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface rounded-[24px] w-full max-w-sm p-6 animate-in zoom-in-95 duration-200">
+            <h2 className="font-black text-[18px] text-primary-dark mb-6 text-center">إعدادات التطبيق (Android)</h2>
+            <form onSubmit={handleUpdateSub} className="space-y-4">
+              <div>
+                <label className="block text-[13px] font-bold text-gray-700 mb-2">تاريخ انتهاء الاشتراك</label>
+                <input 
+                  type="date" 
+                  className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" 
+                  value={subEndDate} 
+                  onChange={e => setSubEndDate(e.target.value)} 
+                />
+              </div>
+              <div>
+                <label className="block text-[13px] font-bold text-gray-700 mb-2">رسالة تحذير مخصصة (اختياري)</label>
+                <textarea 
+                  placeholder="اكتب رسالة للعميل تظهر قبل انتهاء الاشتراك بـ 3 أيام..." 
+                  className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary min-h-[100px] text-[14px]" 
+                  value={warningMsg} 
+                  onChange={e => setWarningMsg(e.target.value)} 
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="submit" disabled={isUpdatingSub} className="flex-1 bg-primary text-white py-3.5 rounded-xl font-bold text-[15px] disabled:opacity-50">
+                  {isUpdatingSub ? 'جاري الحفظ...' : 'حفظ'}
+                </button>
+                <button type="button" onClick={() => setIsSubModalOpen(false)} disabled={isUpdatingSub} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold text-[15px] disabled:opacity-50">إلغاء</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isEditProfileOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface rounded-[24px] w-full max-w-sm p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto scrollbar-hide">
+            <h2 className="font-black text-[18px] text-primary-dark mb-6 text-center">تعديل حساب العميل</h2>
+            
+            {profileError && (
+              <div className="bg-red-50 text-red-500 p-3 rounded-xl text-[13px] font-bold mb-4 text-center">
+                {profileError}
+              </div>
+            )}
+            
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
+              <div>
+                <label className="block text-[13px] font-bold text-gray-700 mb-1.5">اسم العميل</label>
+                <input required type="text" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={editName} onChange={e => setEditName(e.target.value)} disabled={isUpdatingProfile} />
+              </div>
+              <div>
+                <label className="block text-[13px] font-bold text-gray-700 mb-1.5">رقم الهاتف</label>
+                <input required type="tel" dir="ltr" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-right text-[14px]" value={editPhone} onChange={e => setEditPhone(e.target.value)} disabled={isUpdatingProfile} />
+              </div>
+              <div>
+                <label className="block text-[13px] font-bold text-gray-700 mb-1.5">الرمز السري (4 أرقام)</label>
+                <input required type="text" maxLength={4} inputMode="numeric" dir="ltr" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-center tracking-[0.5em] text-[14px]" value={editPin} onChange={e => setEditPin(e.target.value.replace(/\D/g, ''))} disabled={isUpdatingProfile} />
+              </div>
+              <div>
+                <label className="block text-[13px] font-bold text-gray-700 mb-1.5">اسم المتجر (اختياري)</label>
+                <input type="text" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={editStore} onChange={e => setEditStore(e.target.value)} disabled={isUpdatingProfile} />
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button type="submit" disabled={isUpdatingProfile} className="flex-1 bg-primary text-white py-3.5 rounded-xl font-bold text-[15px] disabled:opacity-50">
+                  {isUpdatingProfile ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                </button>
+                <button type="button" onClick={() => setIsEditProfileOpen(false)} disabled={isUpdatingProfile} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold text-[15px] disabled:opacity-50">إلغاء</button>
               </div>
             </form>
           </div>

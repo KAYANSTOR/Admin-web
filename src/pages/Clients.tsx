@@ -18,6 +18,8 @@ export default function Clients() {
   const [newCommission, setNewCommission] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -33,7 +35,7 @@ export default function Clients() {
       const data: any[] = [];
       snapshot.forEach(doc => {
         const d = { id: doc.id, ...doc.data() };
-        if (d.role === 'NETWORK_OWNER' || (!d.role && d.storeName)) {
+        if (d.role !== 'ADMIN' && d.role !== 'STAFF') {
            data.push(d);
         }
       });
@@ -62,25 +64,34 @@ export default function Clients() {
   
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim() || !newPhone.trim() || !newPassword.trim()) return;
+    setCreateError('');
+    if (!newName.trim() || !newPhone.trim() || !newPassword.trim()) {
+      setCreateError('الرجاء تعبئة جميع الحقول المطلوبة');
+      return;
+    }
+    if (newPassword.length !== 4) {
+      setCreateError('الرمز السري يجب أن يكون 4 أرقام');
+      return;
+    }
     
+    setIsCreating(true);
     // Auto-generate email and password to match AuthContext login logic
-    const generatedEmail = `${newPhone}@kayansoft.com`;
-    const generatedPassword = `${newPassword}kayan`;
+    const generatedEmail = `${newPhone.trim()}@kayansoft.com`;
+    const generatedPassword = `${newPassword.trim()}kayan`;
 
     try {
       const userCred = await createUserWithEmailAndPassword(secondaryAuth, generatedEmail, generatedPassword);
       await setDoc(doc(db, 'users', userCred.user.uid), {
-        name: newName,
-        phone: newPhone,
-        pin: newPassword, // Save the 4-digit pin so it can be retrieved if needed (optional, but matches existing data structure)
+        name: newName.trim(),
+        phone: newPhone.trim(),
+        pin: newPassword.trim(),
         email: generatedEmail,
-        storeName: newStore,
+        storeName: newStore.trim(),
         status: 'ACTIVE',
-        isActive: true, // legacy
-        is_active: true, // new Android requirement
+        isActive: true,
+        is_active: true,
         commissionPercentage: parseFloat(newCommission) || 0,
-        commission_rate: parseFloat(newCommission) || 0, // new Android requirement
+        commission_rate: parseFloat(newCommission) || 0,
         role: 'NETWORK_OWNER',
         createdAt: serverTimestamp(),
         deviceLimit: 3
@@ -89,8 +100,14 @@ export default function Clients() {
       setIsCreateModalOpen(false);
       setNewName(''); setNewPhone(''); setNewStore(''); setNewCommission(''); setNewPassword(''); setNewEmail('');
     } catch (err: any) {
-      alert('خطأ في إنشاء الحساب: ' + err.message);
       console.error(err);
+      if (err.code === 'auth/email-already-in-use') {
+        setCreateError('رقم الهاتف هذا مسجل مسبقاً في النظام!');
+      } else {
+        setCreateError('خطأ: ' + err.message);
+      }
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -213,15 +230,24 @@ export default function Clients() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-surface rounded-[24px] w-full max-w-sm p-6 animate-in zoom-in-95 duration-200">
             <h2 className="font-black text-[18px] text-primary-dark mb-6 text-center">إضافة عميل جديد</h2>
+            
+            {createError && (
+              <div className="bg-red-50 text-red-500 p-3 rounded-xl text-[13px] font-bold mb-4 text-center">
+                {createError}
+              </div>
+            )}
+            
             <form onSubmit={handleCreateClient} className="space-y-4">
-              <input required type="text" placeholder="اسم العميل" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newName} onChange={e => setNewName(e.target.value)} />
-              <input required type="tel" placeholder="رقم الهاتف" dir="ltr" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-right text-[14px]" value={newPhone} onChange={e => setNewPhone(e.target.value)} />
-              <input required type="text" placeholder="الرمز السري (4 أرقام)" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newPassword} onChange={e => setNewPassword(e.target.value)} maxLength={4} />
-              <input type="text" placeholder="اسم المتجر (اختياري)" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newStore} onChange={e => setNewStore(e.target.value)} />
-              <input type="number" step="0.01" min="0" max="100" placeholder="نسبة العمولة (%)" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newCommission} onChange={e => setNewCommission(e.target.value)} />
+              <input required type="text" placeholder="اسم العميل" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newName} onChange={e => setNewName(e.target.value)} disabled={isCreating} />
+              <input required type="tel" placeholder="رقم الهاتف" dir="ltr" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-right text-[14px]" value={newPhone} onChange={e => setNewPhone(e.target.value)} disabled={isCreating} />
+              <input required type="text" placeholder="الرمز السري (4 أرقام)" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px] tracking-widest text-center" value={newPassword} onChange={e => setNewPassword(e.target.value.replace(/\D/g, ''))} maxLength={4} disabled={isCreating} inputMode="numeric" />
+              <input type="text" placeholder="اسم المتجر (اختياري)" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newStore} onChange={e => setNewStore(e.target.value)} disabled={isCreating} />
+              <input type="number" step="0.01" min="0" max="100" placeholder="نسبة العمولة (%)" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={newCommission} onChange={e => setNewCommission(e.target.value)} disabled={isCreating} />
               <div className="flex gap-3 pt-4">
-                <button type="submit" className="flex-1 bg-primary text-white py-3.5 rounded-xl font-bold text-[15px]">إضافة</button>
-                <button type="button" onClick={() => setIsCreateModalOpen(false)} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold text-[15px]">إلغاء</button>
+                <button type="submit" disabled={isCreating} className="flex-1 bg-primary text-white py-3.5 rounded-xl font-bold text-[15px] disabled:opacity-50 transition-opacity">
+                  {isCreating ? 'جاري الإنشاء...' : 'إضافة'}
+                </button>
+                <button type="button" onClick={() => {setIsCreateModalOpen(false); setCreateError('');}} disabled={isCreating} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold text-[15px] disabled:opacity-50">إلغاء</button>
               </div>
             </form>
           </div>
