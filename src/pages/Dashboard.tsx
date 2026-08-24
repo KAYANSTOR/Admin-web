@@ -46,18 +46,17 @@ export default function Dashboard() {
         setLatestClients(clientsList);
 
         // Fetch Sales using collectionGroup
+        // المبيعات محفوظة فعلياً في networks/{uid}/sales (يكتبها تطبيق الأندرويد)
+        // وليس في users/{uid}/sales، لذلك يجب استخدام collectionGroup على 'sales'
         let monthSalesValue = 0;
         let todaySalesValue = 0;
         let pendingCommissions = 0;
 
-        const usersSnap = await getDocs(collection(db, 'users'));
-        let allSales: any[] = [];
-        await Promise.all(usersSnap.docs.map(async (uDoc) => {
-          const uSales = await getDocs(collection(db, 'users', uDoc.id, 'sales'));
-          uSales.forEach(doc => {
-            allSales.push(doc.data());
-          });
-        }));
+        const salesSnap = await getDocs(collectionGroup(db, 'sales'));
+        const allSales: any[] = [];
+        salesSnap.forEach(doc => {
+          allSales.push(doc.data());
+        });
 
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();

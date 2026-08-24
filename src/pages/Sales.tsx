@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, collectionGroup, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collectionGroup, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { TrendingUp, ArrowLeft, Search } from 'lucide-react';
@@ -14,18 +14,15 @@ export default function Sales() {
   useEffect(() => {
     const fetchSales = async () => {
       try {
-        const usersSnap = await getDocs(collection(db, 'users'));
-        let allSales: any[] = [];
-        await Promise.all(usersSnap.docs.map(async (uDoc) => {
-          const uSales = await getDocs(collection(db, 'users', uDoc.id, 'sales'));
-          uSales.forEach(d => {
-            allSales.push({ id: d.id, ...d.data() });
-          });
-        }));
-        allSales.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-        setSales(allSales.slice(0, 100));
+        // المبيعات يرفعها تطبيق الأندرويد إلى المسار networks/{uid}/sales
+        // نستخدم collectionGroup لقراءتها من كل الشبكات دفعة واحدة بدل حلقة يدوية على مسار خاطئ
+        const salesQuery = query(collectionGroup(db, 'sales'), orderBy('createdAt', 'desc'), limit(100));
+        const snap = await getDocs(salesQuery);
+        const allSales: any[] = [];
+        snap.forEach(d => allSales.push({ id: d.id, ...d.data() }));
+        setSales(allSales);
       } catch (e: any) {
-                console.error(e);
+        console.error(e);
       }
       setLoading(false);
     };

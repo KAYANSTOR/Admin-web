@@ -116,44 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       // 1. Try to sign in with Firebase Auth
-      try {
-        await signInWithEmailAndPassword(auth, email, password);
-      } catch (authError: any) {
-        // Fallback for Admin creation ONLY
-        if (phone === '773303455' && pin === '0808') {
-          try {
-            // Check if user exists in auth first to avoid "email already in use" error masking firestore errors
-            try {
-               await signInWithEmailAndPassword(auth, email, password);
-            } catch (innerAuthErr) {
-               await createUserWithEmailAndPassword(auth, email, password);
-            }
-            
-            // Wait for auth state to propagate before writing to firestore
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            const adminDoc = {
-              name: name || "مدير النظام",
-              phone: "773303455",
-              pin: "0808",
-              role: "ADMIN",
-              permissions: ["clients", "licenses", "serials", "commissions", "subscriptions", "employees", "sales"],
-              isActive: true
-            };
-            const qs = await getDocs(query(collection(db, 'users'), where("phone", "==", phone)));
-            if (qs.empty) {
-              await addDoc(collection(db, 'users'), adminDoc);
-            }
-          } catch (createError: any) {
-             if (createError.code !== 'auth/email-already-in-use') {
-               console.error("Admin creation failed", createError);
-             }
-             throw createError; // throw actual error for UI
-          }
-        } else {
-          throw authError; // Not the admin fallback, so just throw
-        }
-      }
+      await signInWithEmailAndPassword(auth, email, password);
 
       // 2. We are authenticated! Now read from Firestore to get Profile
       const usersRef = collection(db, 'users');
@@ -161,19 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       let querySnapshot = await getDocs(q);
       
-      // If admin document missing for some reason, create it now
-      if (querySnapshot.empty && phone === '773303455' && pin === '0808') {
-         const adminDoc = {
-            name: name,
-            phone: "773303455",
-            pin: "0808",
-            role: "ADMIN",
-            permissions: ["clients", "licenses", "serials", "commissions", "subscriptions", "employees", "sales"],
-            isActive: true
-         };
-         await addDoc(collection(db, 'users'), adminDoc);
-         querySnapshot = await getDocs(q);
-      }
+      
       
       if (!querySnapshot.empty) {
         const docSnap = querySnapshot.docs[0];

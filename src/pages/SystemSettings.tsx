@@ -43,7 +43,7 @@ export default function SystemSettings() {
           setMaintenanceMsg(gData.maintenance_message || '');
         }
 
-        const docRef = doc(db, 'settings', 'app_settings');
+        const docRef = doc(db, 'app_settings', 'global_config');
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -89,7 +89,7 @@ export default function SystemSettings() {
     e.preventDefault();
     setIsUrlSaving(true);
     try {
-      await setDoc(doc(db, 'settings', 'app_settings'), {
+      await setDoc(doc(db, 'app_settings', 'global_config'), {
         WebView_Config: {
           url: webViewUrl,
           placement: webViewPlacement
@@ -109,7 +109,7 @@ export default function SystemSettings() {
     e.preventDefault();
     setIsPopupSaving(true);
     try {
-      await setDoc(doc(db, 'settings', 'app_settings'), {
+      await setDoc(doc(db, 'app_settings', 'global_config'), {
         Current_Popup: {
           title: popupTitle,
           message: popupMessage,
@@ -132,7 +132,7 @@ export default function SystemSettings() {
     setIsBannerSaving(true);
     try {
       const updatedBanners = [...banners, newBannerUrl.trim()];
-      await setDoc(doc(db, 'settings', 'app_settings'), {
+      await setDoc(doc(db, 'app_settings', 'global_config'), {
         Banners: updatedBanners
       }, { merge: true });
       
@@ -156,7 +156,7 @@ export default function SystemSettings() {
       const downloadURL = await getDownloadURL(storageRef);
 
       const updatedBanners = [...banners, downloadURL];
-      await setDoc(doc(db, 'settings', 'app_settings'), {
+      await setDoc(doc(db, 'app_settings', 'global_config'), {
         Banners: updatedBanners
       }, { merge: true });
       
@@ -179,7 +179,7 @@ export default function SystemSettings() {
         await deleteObject(fileRef).catch(console.warn);
       }
 
-      await setDoc(doc(db, 'settings', 'app_settings'), {
+      await setDoc(doc(db, 'app_settings', 'global_config'), {
         Banners: updatedBanners
       }, { merge: true });
       setBanners(updatedBanners);

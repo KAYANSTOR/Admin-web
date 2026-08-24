@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
-import { doc, onSnapshot, collection, query, where, orderBy, getDocs, updateDoc } from 'firebase/firestore';
-import { ArrowLeft, User, Phone, CheckCircle2, ShieldOff, AlertTriangle, Calendar, Building2, Coins, TrendingUp } from 'lucide-react';
+import { doc, onSnapshot, collection, query, orderBy, getDocs, updateDoc } from 'firebase/firestore';
+import { ArrowLeft, Phone, CheckCircle2, ShieldOff, AlertTriangle, Calendar, Building2, Coins, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
@@ -31,7 +31,8 @@ export default function ClientProfile() {
     // Fetch client sales
     const fetchSales = async () => {
       try {
-        const salesRef = collection(db, `network/${id}/sales`);
+        // المسار الصحيح حسب العقد مع تطبيق الأندرويد هو "networks" (جمع) وليس "network"
+        const salesRef = collection(db, `networks/${id}/sales`);
         const q = query(salesRef, orderBy('createdAt', 'desc'));
         const snap = await getDocs(q);
         const data: any[] = [];
