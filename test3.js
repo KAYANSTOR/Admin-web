@@ -5,19 +5,18 @@ const firebaseConfig = {
   apiKey: "AIzaSyBq0BXktt8KtzmiLEilf_XcD8ZgWsfsfu0",
   authDomain: "netcard-pro.firebaseapp.com",
   projectId: "netcard-pro",
-  storageBucket: "netcard-pro.firebasestorage.app",
-  messagingSenderId: "9969478641",
-  appId: "1:9969478641:web:645d2aeddc077a8e0c3250",
-  measurementId: "G-SFG2L84CS1"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 async function test() {
-  const qs = await getDocs(query(collection(db, 'users'), where("phone", "==", "773303455")));
-  console.log("Empty:", qs.empty);
-  qs.forEach(doc => console.log(doc.id, doc.data()));
+  try {
+    const qs = await getDocs(query(collection(db, 'users'), where("phone", "==", "773303455")));
+    console.log("Success. Empty:", qs.empty);
+  } catch (err) {
+    console.error("Error:", err.message);
+  }
   process.exit(0);
 }
 test();

@@ -4,13 +4,13 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyC7_1Q49dAJHB8jNAeeo4zmV_w9F1hSZS8",
-  authDomain: "krotek-e768b.firebaseapp.com",
-  projectId: "krotek-e768b",
-  storageBucket: "krotek-e768b.firebasestorage.app",
-  messagingSenderId: "60772250353",
-  appId: "1:60772250353:web:50bda931bb407bac0e2f50",
-  measurementId: "G-PL44QQ9CXW"
+  apiKey: "AIzaSyBq0BXktt8KtzmiLEilf_XcD8ZgWsfsfu0",
+  authDomain: "netcard-pro.firebaseapp.com",
+  projectId: "netcard-pro",
+  storageBucket: "netcard-pro.firebasestorage.app",
+  messagingSenderId: "9969478641",
+  appId: "1:9969478641:web:645d2aeddc077a8e0c3250",
+  measurementId: "G-SFG2L84CS1"
 };
 
 const app = initializeApp(firebaseConfig);

@@ -45,6 +45,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const q = query(usersRef, where("phone", "==", firebaseUser.email?.split('@')[0]));
           
           unsubscribeDoc = onSnapshot(q, (snapshot) => {
+            
+            
             if (!snapshot.empty) {
               const uData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as UserProfile;
               
@@ -54,7 +56,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   setUser(null);
                   localStorage.removeItem('kayan_user');
                   setErrorMsg('تم إيقاف حسابك من قبل الإدارة.');
-                });
+                
+          
+          }, (error) => {
+            console.error("Firestore onSnapshot permission error:", error);
+            setErrorMsg("خطأ في صلاحيات قاعدة البيانات (Firestore). يرجى التأكد من تحديث قواعد الأمان كما هو موضح.");
+            setLoading(false);
+          });
               } else {
                 setUser(uData);
                 localStorage.setItem('kayan_user', JSON.stringify(uData));
@@ -111,14 +119,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Fallback for Admin creation ONLY
         if (phone === '773303455' && pin === '0808') {
           try {
-            await createUserWithEmailAndPassword(auth, email, password);
-            // After creating, we are logged in, so we can write to Firestore
+            // Check if user exists in auth first to avoid "email already in use" error masking firestore errors
+            try {
+               await signInWithEmailAndPassword(auth, email, password);
+            } catch (innerAuthErr) {
+               await createUserWithEmailAndPassword(auth, email, password);
+            }
+            
+            // Wait for auth state to propagate before writing to firestore
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
             const adminDoc = {
-              name: name,
+              name: name || "مدير النظام",
               phone: "773303455",
               pin: "0808",
               role: "ADMIN",
-              permissions: ["clients", "serials", "commissions", "subscriptions", "employees", "sales"],
+              permissions: ["clients", "licenses", "serials", "commissions", "subscriptions", "employees", "sales"],
               isActive: true
             };
             const qs = await getDocs(query(collection(db, 'users'), where("phone", "==", phone)));
@@ -127,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           } catch (createError) {
              console.error("Admin creation failed", createError);
-             throw authError; // throw original
+             throw createError; // throw actual error for UI
           }
         } else {
           throw authError; // Not the admin fallback, so just throw
