@@ -66,10 +66,10 @@ export default function Employees() {
 
   const openEditModal = (emp: any) => {
     setEditingEmp(emp);
-    setNewName(emp.name);
-    setNewPhone(emp.phone);
-    setNewPin(emp.pin);
-    setNewRole(emp.role);
+    setNewName(emp.name || '');
+    setNewPhone(emp.phone || '');
+    setNewPin(emp.pin || '');
+    setNewRole(emp.role || 'STAFF');
     setNewPermissions(emp.permissions || []);
     setIsModalOpen(true);
   };
