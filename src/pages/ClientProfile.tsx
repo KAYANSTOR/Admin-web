@@ -3,11 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, collection, query, orderBy, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
 import { ArrowLeft, Phone, CheckCircle2, ShieldOff, AlertTriangle, Calendar, Building2, Coins, TrendingUp } from 'lucide-react';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { format } from 'date-fns';
+import { endDateToDate, isSubscriptionExpired, timestampFromDaysFromNow, timestampFromMillis, endDateToMillis, isTrialAccount, activateTrialAccount } from '../lib/subscriptionUtils';
 import { ar } from 'date-fns/locale';
 
 export default function ClientProfile() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const [dialogConfig, setDialogConfig] = useState<any>({ isOpen: false });
+  const closeDialog = () => setDialogConfig({ isOpen: false });
+
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editCommission, setEditCommission] = useState('');
@@ -87,86 +93,203 @@ export default function ClientProfile() {
   }, [id]);
 
   
-  const handleDeleteClient = async () => {
+    const handleDeleteClient = async () => {
     if (!client) return;
-    const confirm = window.prompt('تنبيه خطير: سيتم حذف جميع بيانات العميل من قاعدة البيانات (بما فيها ملفه الأساسي). لا يمكن التراجع عن هذه العملية! اكتب "حذف" للتأكيد:');
-    if (confirm !== 'حذف') return;
-    
-    setIsUpdating(true);
-    try {
-      await deleteDoc(doc(db, 'users', client.id));
-      // NOTE: Firebase Auth user must be deleted from Firebase Console or via Cloud Function
-      alert('تم حذف العميل بنجاح. تذكر حذف حسابه من Firebase Authentication يدوياً إذا أردت منعه من تسجيل الدخول نهائياً.');
-      navigate('/clients');
-    } catch (e) {
-      console.error(e);
-      alert('حدث خطأ أثناء الحذف');
-      setIsUpdating(false);
-    }
+    setDialogConfig({
+      isOpen: true,
+      title: 'حذف العميل نهائياً',
+      message: 'تنبيه خطير: سيتم حذف جميع بيانات العميل من قاعدة البيانات. لا يمكن التراجع عن هذه العملية! اكتب "حذف" للتأكيد:',
+      danger: true,
+      requireInput: true,
+      expectedInput: 'حذف',
+      inputPlaceholder: 'اكتب كلمة "حذف"',
+      confirmText: 'حذف نهائي',
+      onConfirm: async () => {
+        closeDialog();
+        setIsUpdating(true);
+        try {
+          await deleteDoc(doc(db, 'users', client.id));
+          alert('تم حذف العميل بنجاح. تذكر حذف حسابه من Firebase Authentication يدوياً إذا أردت منعه من تسجيل الدخول نهائياً.');
+          navigate('/clients');
+        } catch (e) {
+          console.error(e);
+          alert('حدث خطأ أثناء الحذف');
+          setIsUpdating(false);
+        }
+      },
+      onCancel: closeDialog
+    });
   };
 
-  const toggleStatus = async () => {
+      const handleActivateTrial = async () => {
     if (!client) return;
-    if (!window.confirm(client.is_active ? 'هل أنت متأكد من إيقاف هذا العميل؟' : 'هل أنت متأكد من تفعيل هذا العميل؟')) return;
-    setIsUpdating(true);
-    try {
-      await updateDoc(doc(db, 'users', client.id), {
-        is_active: !client.is_active,
+    setDialogConfig({
+      isOpen: true,
+      title: 'تفعيل الحساب التجريبي',
+      message: 'أدخل عدد الأيام لتفعيل الحساب:',
+      requireInput: true,
+      inputType: 'number',
+      defaultValue: '30',
+      confirmText: 'التالي (نسبة العمولة)',
+      onConfirm: (daysStr: string) => {
+        closeDialog();
+        const days = parseInt(daysStr);
+        if (isNaN(days) || days <= 0) return alert('أيام غير صالحة');
         
-      });
-    } catch (e) {
-      console.error(e);
-      alert('حدث خطأ أثناء تحديث الحالة');
-    }
-    setIsUpdating(false);
+        setTimeout(() => {
+          setDialogConfig({
+            isOpen: true,
+            title: 'نسبة العمولة',
+            message: 'أدخل نسبة عمولة النظام لهذا العميل (%):',
+            requireInput: true,
+            inputType: 'number',
+            defaultValue: '1.5',
+            confirmText: 'تفعيل الحساب رسمياً',
+            onConfirm: async (rateStr: string) => {
+              closeDialog();
+              const rate = parseFloat(rateStr);
+              if (isNaN(rate) || rate < 0 || rate > 100) return alert('نسبة غير صالحة');
+              
+              setIsUpdating(true);
+              try {
+                await activateTrialAccount(client.id, days, rate);
+                alert('تم تفعيل الحساب بنجاح وإخراجه من الفترة التجريبية!');
+              } catch (e) {
+                console.error(e);
+                alert('حدث خطأ');
+              } finally {
+                setIsUpdating(false);
+              }
+            },
+            onCancel: closeDialog
+          });
+        }, 100); // small delay to allow previous dialog to unmount
+      },
+      onCancel: closeDialog
+    });
   };
 
-  
-  const updateWarning = async () => {
+const toggleStatus = async () => {
     if (!client) return;
-    const msg = window.prompt('أدخل رسالة التحذير للعميل (اتركها فارغة للإزالة):', client.warning_message || '');
-    if (msg === null) return;
-    
-    setIsUpdating(true);
-    try {
-      await updateDoc(doc(db, 'users', client.id), {
-        warning_message: msg.trim()
-      });
-    } catch (e) {
-      console.error(e);
-      alert('حدث خطأ أثناء حفظ الرسالة');
-    } finally {
-      setIsUpdating(false);
-    }
+    setDialogConfig({
+      isOpen: true,
+      title: client.is_active ? 'تأكيد إيقاف الحساب' : 'تأكيد تنشيط الحساب',
+      message: client.is_active ? 'هل أنت متأكد من إيقاف هذا الحساب؟ لن يتمكن العميل من الدخول للتطبيق.' : 'هل أنت متأكد من تنشيط هذا الحساب؟',
+      danger: client.is_active,
+      confirmText: client.is_active ? 'إيقاف الحساب' : 'تنشيط',
+      onConfirm: async () => {
+        closeDialog();
+        setIsUpdating(true);
+        try {
+          await updateDoc(doc(db, 'users', client.id), {
+            is_active: !client.is_active,
+          });
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setIsUpdating(false);
+        }
+      },
+      onCancel: closeDialog
+    });
+  };
+
+    const handleSettleCommission = () => {
+    if (!client) return;
+    setDialogConfig({
+      isOpen: true,
+      title: 'تسوية العمولة',
+      message: `العمولة المستحقة حالياً هي ${pendingCommission} ري. أدخل المبلغ المراد تسويته:`,
+      requireInput: true,
+      inputType: 'number',
+      defaultValue: pendingCommission.toString(),
+      confirmText: 'تسوية',
+      onConfirm: async (amountStr: string) => {
+        closeDialog();
+        const amount = parseFloat(amountStr);
+        if (isNaN(amount) || amount <= 0) return alert('الرجاء إدخال مبلغ صحيح');
+        setIsUpdating(true);
+        try {
+          await updateDoc(doc(db, 'users', client.id), {
+            total_settled_commission: (client.total_settled_commission || 0) + amount
+          });
+        } catch (e) {
+          console.error(e);
+          alert('حدث خطأ أثناء التسوية');
+        } finally {
+          setIsUpdating(false);
+        }
+      },
+      onCancel: closeDialog
+    });
+  };
+
+  const handleEditCommissionRate = () => {
+    if (!client) return;
+    setDialogConfig({
+      isOpen: true,
+      title: 'تعديل نسبة العمولة',
+      message: 'أدخل نسبة العمولة الجديدة (%):',
+      requireInput: true,
+      inputType: 'number',
+      defaultValue: (client.commission_rate || 0).toString(),
+      confirmText: 'حفظ التعديل',
+      onConfirm: async (rateStr: string) => {
+        closeDialog();
+        const rate = parseFloat(rateStr);
+        if (isNaN(rate) || rate < 0 || rate > 100) return alert('الرجاء إدخال نسبة صحيحة بين 0 و 100');
+        setIsUpdating(true);
+        try {
+          await updateDoc(doc(db, 'users', client.id), {
+            commission_rate: rate
+          });
+        } catch (e) {
+          console.error(e);
+          alert('حدث خطأ أثناء التعديل');
+        } finally {
+          setIsUpdating(false);
+        }
+      },
+      onCancel: closeDialog
+    });
   };
 
   const renewSubscription = async () => {
     if (!client) return;
-    const days = window.prompt('أدخل عدد الأيام لتجديد الاشتراك:', '30');
-    if (!days) return;
-    const numDays = parseInt(days);
-    if (isNaN(numDays) || numDays <= 0) return alert('الرجاء إدخال رقم صحيح');
-    
-    setIsUpdating(true);
-    try {
-      // Calculate new end date based on current logic (if expired, start from now, else add to existing)
-      const now = Date.now();
-      const currentEnd = client.subscription_end_date || now;
-      const baseDate = currentEnd < now ? now : currentEnd;
-      const newEndDate = baseDate + (numDays * 24 * 60 * 60 * 1000);
-      
-      await updateDoc(doc(db, 'users', client.id), {
-        subscription_end_date: newEndDate,
-        is_active: true,
+    setDialogConfig({
+      isOpen: true,
+      title: 'تجديد الاشتراك',
+      message: 'أدخل عدد الأيام لتجديد الاشتراك:',
+      requireInput: true,
+      inputType: 'number',
+      defaultValue: '30',
+      confirmText: 'تجديد',
+      onConfirm: async (days: string) => {
+        closeDialog();
+        const numDays = parseInt(days);
+        if (isNaN(numDays) || numDays <= 0) return alert('الرجاء إدخال رقم صحيح');
         
-        warning_message: ''
-      });
-      alert('تم تجديد الاشتراك بنجاح!');
-    } catch (e) {
-      console.error(e);
-      alert('حدث خطأ أثناء التجديد');
-    }
-    setIsUpdating(false);
+        setIsUpdating(true);
+        try {
+          const now = Date.now();
+          const currentEndMs = endDateToMillis(client.subscription_end_date);
+          const baseDate = currentEndMs < now ? now : currentEndMs;
+          const newEndDateMs = baseDate + (numDays * 24 * 60 * 60 * 1000);
+          
+          await updateDoc(doc(db, 'users', client.id), {
+            subscription_end_date: timestampFromMillis(newEndDateMs),
+            is_active: true,
+            warning_message: ''
+          });
+        } catch (e) {
+          console.error(e);
+          alert('حدث خطأ أثناء التجديد');
+        } finally {
+          setIsUpdating(false);
+        }
+      },
+      onCancel: closeDialog
+    });
   };
 
   if (loading) return <div className="p-6 text-center">جاري التحميل...</div>;
@@ -175,8 +298,10 @@ export default function ClientProfile() {
   const totalSalesValue = sales.filter(s => s.status === 'COMPLETED').reduce((sum, s) => sum + (s.faceValue || 0), 0);
   const totalCommission = sales.reduce((sum, s) => sum + (s.commission || 0), 0); // Or use faceValue * client.commission_rate
   const calculatedAdminCommission = totalSalesValue * ((client.commission_rate || 0) / 100);
+  const settledCommission = client.total_settled_commission || 0;
+  const pendingCommission = Math.max(0, calculatedAdminCommission - settledCommission);
   
-  const isExpired = client.subscription_end_date && client.subscription_end_date < Date.now();
+  const isExpired = isSubscriptionExpired(client.subscription_end_date);
 
   return (
     <div className="bg-app-bg min-h-full pb-20">
@@ -213,7 +338,31 @@ export default function ClientProfile() {
       <div className="px-6 -mt-12 relative z-10 space-y-4">
         
         {/* Status Card */}
-        <div className="bg-white rounded-[20px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.08)] flex justify-between items-center">
+        <div className="bg-white rounded-[20px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.08)] flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-[13px] text-gray-500 font-medium mb-1">نوع الحساب</div>
+              <div className="flex items-center gap-2">
+                {isTrialAccount(client) ? (
+                  <span className="text-[16px] font-bold text-icon-purple bg-icon-purple/10 px-3 py-1 rounded-lg">فترة تجريبية</span>
+                ) : (
+                  <span className="text-[16px] font-bold text-primary-dark">حساب معتمد (PAID)</span>
+                )}
+              </div>
+            </div>
+            
+            {isTrialAccount(client) && (
+              <button 
+                disabled={isUpdating}
+                onClick={handleActivateTrial}
+                className="px-6 py-2 rounded-xl text-[14px] font-bold transition-colors bg-primary text-white hover:bg-primary-variant"
+              >
+                اعتماد وتفعيل رسمي
+              </button>
+            )}
+          </div>
+          <div className="h-[1px] bg-gray-100"></div>
+          <div className="flex justify-between items-center">
           <div>
             <div className="text-[13px] text-gray-500 font-medium mb-1">حالة الحساب</div>
             <div className="flex items-center gap-2">
@@ -234,6 +383,7 @@ export default function ClientProfile() {
             {client.is_active ? 'إيقاف الحساب' : 'تفعيل الحساب'}
           </button>
         </div>
+      </div>
 
         {/* Subscription Info */}
         <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
@@ -255,7 +405,7 @@ export default function ClientProfile() {
             <div className="flex justify-between items-center text-[14px]">
               <span className="text-gray-500">تاريخ الانتهاء</span>
               <span className={`font-bold ${isExpired ? 'text-red-500' : 'text-primary-dark'}`}>
-                {client.subscription_end_date ? format(new Date(client.subscription_end_date), 'dd/MM/yyyy') : 'غير محدد'}
+                {endDateToDate(client.subscription_end_date) ? format(endDateToDate(client.subscription_end_date)!, 'dd/MM/yyyy') : 'غير محدد'}
               </span>
             </div>
             {client.warning_message && (
@@ -275,11 +425,17 @@ export default function ClientProfile() {
           </div>
           
           <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="bg-gray-50 p-3 rounded-xl text-center">
+            <div className="bg-gray-50 p-3 rounded-xl text-center relative group">
               <div className="text-[12px] text-gray-500 mb-1">نسبة العمولة</div>
               <div className="text-[18px] font-black text-primary-dark">
                 {client.commission_rate || 0}%
               </div>
+              <button 
+                onClick={handleEditCommissionRate}
+                className="absolute top-2 left-2 text-[10px] bg-white border border-gray-200 px-2 py-1 rounded text-gray-600 hover:text-primary transition-colors"
+              >
+                تعديل
+              </button>
             </div>
             <div className="bg-gray-50 p-3 rounded-xl text-center">
               <div className="text-[12px] text-gray-500 mb-1">إجمالي المبيعات</div>
@@ -293,9 +449,15 @@ export default function ClientProfile() {
             <div>
               <div className="text-[13px] text-teal-700 font-medium mb-1">عمولة الإدارة المستحقة</div>
               <div className="text-[20px] font-black text-teal-800">
-                {calculatedAdminCommission} <span className="text-[14px]">ري</span>
+                {pendingCommission} <span className="text-[14px]">ري</span>
               </div>
             </div>
+            <button 
+              onClick={handleSettleCommission}
+              className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-[13px] font-bold transition-colors"
+            >
+              تسوية العمولة
+            </button>
           </div>
         </div>
 
