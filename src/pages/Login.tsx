@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { User, Phone, Lock } from 'lucide-react';
+import { Phone, Lock } from 'lucide-react';
 
 export default function Login() {
-  const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -13,10 +12,10 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !phone || pin.length !== 4) return;
+    if (!phone || pin.length !== 4) return;
     try {
       setIsLoading(true);
-      await login(name, phone, pin);
+      await login('', phone, pin);
       navigate('/dashboard');
     } catch (err: any) {
       // Error is handled in context
@@ -41,22 +40,6 @@ export default function Login() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <div className="relative group">
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400 group-focus-within:text-primary transition-colors" />
-                </div>
-                <input
-                  type="text"
-                  required
-                  className="w-full pr-10 pl-3 py-3.5 border border-gray-300 rounded-xl focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all bg-transparent text-text-primary text-[15px] placeholder:text-gray-400"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="الاسم"
-                />
-              </div>
-            </div>
-
             <div>
               <div className="relative group">
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">

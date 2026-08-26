@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { ArrowLeft, Link as LinkIcon, MessageSquare, Save, CheckCircle2, Image as ImageIcon, Plus, Trash2, UploadCloud, Shield } from 'lucide-react';
@@ -43,8 +43,7 @@ export default function SystemSettings() {
           setMaintenanceMsg(gData.maintenance_message || '');
         }
 
-        const docRef = doc(db, 'app_settings', 'global_config');
-        const docSnap = await getDoc(docRef);
+        const docSnap = globalSnap;
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data.WebView_Config) {
@@ -113,7 +112,7 @@ export default function SystemSettings() {
         Current_Popup: {
           title: popupTitle,
           message: popupMessage,
-          updatedAt: new Date().toISOString()
+          updatedAt: serverTimestamp()
         }
       }, { merge: true });
       
@@ -174,7 +173,7 @@ export default function SystemSettings() {
     const bannerUrl = banners[index];
     const updatedBanners = banners.filter((_, i) => i !== index);
     try {
-      if (bannerUrl.includes('firebasestorage.googleapis.com')) {
+      if (/firebasestorage\.(googleapis\.com|app)/.test(bannerUrl) || bannerUrl.startsWith('gs://')) {
         const fileRef = ref(storage, bannerUrl);
         await deleteObject(fileRef).catch(console.warn);
       }

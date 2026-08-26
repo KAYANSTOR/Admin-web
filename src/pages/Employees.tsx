@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, addDoc, setDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, deleteUser } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, secondaryAuth } from '../lib/firebase';
 import { ArrowLeft, Plus, Shield, User, Trash2, Edit2, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -104,7 +104,7 @@ export default function Employees() {
           role: newRole,
           permissions: newRole === 'ADMIN' ? ALL_PERMISSIONS.map(p => p.id) : newPermissions,
           isActive: true,
-          is_active: true, // For consistency
+          is_active: true,
           createdAt: serverTimestamp(),
         });
 
@@ -134,8 +134,10 @@ export default function Employees() {
   const toggleActive = async (employee: any) => {
     if (employee.id === user?.id) return;
     try {
+      const nextActive = !(employee.isActive ?? employee.is_active ?? true);
       await updateDoc(doc(db, 'users', employee.id), {
-        isActive: !(employee.isActive ?? true)
+        isActive: nextActive,
+        is_active: nextActive
       });
     } catch (err: any) {
       console.error(err);

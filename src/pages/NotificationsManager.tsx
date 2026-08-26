@@ -1,5 +1,4 @@
 
-import { serviceAccount } from '../config/serviceAccount';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, setDoc, addDoc, collection, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
@@ -38,23 +37,22 @@ export default function NotificationsManager() {
     
     setIsLoading(true);
     try {
-      const now = Date.now();
-      
-      // 1. إشعار النظام (عام) -> app_settings/global_config/notifications
-      if (targetAudience === 'ALL') {
-         await addDoc(collection(db, 'app_settings', 'global_config', 'notifications'), {
-           title: title.trim(),
-           message: message.trim(),
-           timestamp: now
-         });
-      } else {
-         // 2. إشعار لمستخدم فردي -> users/{UID}/notifications
-         await addDoc(collection(db, 'users', targetAudience, 'notifications'), {
-           title: title.trim(),
-           message: message.trim(),
-           timestamp: now,
-           is_read: false
-         });
+      // إشعار الدفع يُكتب فقط عند اختيار PUSH أو BOTH.
+      if (notificationType === 'PUSH' || notificationType === 'BOTH') {
+        if (targetAudience === 'ALL') {
+          await addDoc(collection(db, 'app_settings', 'global_config', 'notifications'), {
+            title: title.trim(),
+            message: message.trim(),
+            timestamp: serverTimestamp(),
+          });
+        } else {
+          await addDoc(collection(db, 'users', targetAudience, 'notifications'), {
+            title: title.trim(),
+            message: message.trim(),
+            timestamp: serverTimestamp(),
+            is_read: false,
+          });
+        }
       }
 
       // إضافة نافذة منبثقة (Popup) إلى إعدادات النظام الحالية إذا طُلب ذلك
@@ -64,7 +62,7 @@ export default function NotificationsManager() {
             title: title.trim(),
             message: message.trim(),
             target: targetAudience,
-            updatedAt: new Date().toISOString()
+            updatedAt: serverTimestamp()
           }
         }, { merge: true });
       }

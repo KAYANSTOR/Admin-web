@@ -16,7 +16,11 @@ export const MAX_SELF_REGISTRATION_TRIAL_DAYS = 14;
  */
 export function endDateToMillis(value: unknown): number {
   if (!value) return 0;
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
   if (value instanceof Timestamp) return value.toMillis();
   const maybeTimestampLike = value as { toMillis?: () => number; seconds?: number };
   if (typeof maybeTimestampLike?.toMillis === 'function') return maybeTimestampLike.toMillis();

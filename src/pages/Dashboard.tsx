@@ -6,6 +6,7 @@ import { collection, query, orderBy, limit, getDocs, collectionGroup, where } fr
 import { Users, Clock, CreditCard, ChevronDown, Fingerprint, Coins, TrendingUp, Phone, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { endDateToMillis, isTrialAccount } from '../lib/subscriptionUtils';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -26,7 +27,7 @@ export default function Dashboard() {
       try {
         // Get Clients (Network Owners)
         const clientsRef = collection(db, 'users');
-        const qClients = query(clientsRef, where('role', '==', 'NETWORK_OWNER'), limit(10));
+        const qClients = query(clientsRef, where('role', '==', 'NETWORK_OWNER'));
         const clientsSnap = await getDocs(qClients);
         
         let activeClientsCount = 0;
@@ -36,11 +37,8 @@ export default function Dashboard() {
         clientsSnap.forEach(doc => {
           const data = doc.data();
           clientsList.push({ id: doc.id, ...data });
-          if (data.is_active) {
-            activeClientsCount++;
-          } else {
-            trialCount++; // Just an estimate to populate the UI for now
-          }
+          if (data.is_active) activeClientsCount++;
+          if (isTrialAccount(data)) trialCount++;
         });
         
         setLatestClients(clientsList);
@@ -66,11 +64,11 @@ export default function Dashboard() {
           if (data.status !== 'COMPLETED') return; // حساب المبيعات الناجحة فقط
 
           const faceValue = data.faceValue || 0;
-          const createdAt = data.createdAt || 0;
+          const createdAt = endDateToMillis(data.createdAt);
           
           if (createdAt >= startOfMonth) {
             monthSalesValue += faceValue;
-            pendingCommissions += data.commission || 0; 
+            pendingCommissions += data.commission ?? (faceValue * ((data.commission_rate || 0) / 100));
           }
           if (createdAt >= startOfDay) {
             todaySalesValue += faceValue;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
-import { doc, onSnapshot, collection, query, orderBy, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, getDocs, updateDoc, deleteDoc, increment } from 'firebase/firestore';
 import { ArrowLeft, Phone, CheckCircle2, ShieldOff, AlertTriangle, Calendar, Building2, Coins, TrendingUp } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { format } from 'date-fns';
@@ -33,7 +33,8 @@ export default function ClientProfile() {
     try {
       await updateDoc(doc(db, 'users', client.id), {
         name: editName.trim(),
-        phone: editPhone.trim(),
+        // لا نغيّر phone من لوحة الإدارة؛ بريد Firebase مبني على الرقم ولا يمكن مزامنته بأمان من الواجهة.
+        phone: client.phone,
         commission_rate: parseFloat(editCommission) || 0
       });
       // Update network metadata as well
@@ -181,9 +182,12 @@ const toggleStatus = async () => {
         closeDialog();
         setIsUpdating(true);
         try {
-          await updateDoc(doc(db, 'users', client.id), {
-            is_active: !client.is_active,
-          });
+        const nextActive = !client.is_active;
+        await updateDoc(doc(db, 'users', client.id), {
+          status: nextActive ? 'ACTIVE' : 'SUSPENDED',
+          isActive: nextActive,
+          is_active: nextActive,
+        });
         } catch (e) {
           console.error(e);
         } finally {
@@ -207,11 +211,11 @@ const toggleStatus = async () => {
       onConfirm: async (amountStr: string) => {
         closeDialog();
         const amount = parseFloat(amountStr);
-        if (isNaN(amount) || amount <= 0) return alert('الرجاء إدخال مبلغ صحيح');
+        if (isNaN(amount) || amount <= 0 || amount > pendingCommission) return alert(`الرجاء إدخال مبلغ بين 0 و ${pendingCommission}`);
         setIsUpdating(true);
         try {
           await updateDoc(doc(db, 'users', client.id), {
-            total_settled_commission: (client.total_settled_commission || 0) + amount
+            total_settled_commission: increment(amount)
           });
         } catch (e) {
           console.error(e);
@@ -276,11 +280,13 @@ const toggleStatus = async () => {
           const baseDate = currentEndMs < now ? now : currentEndMs;
           const newEndDateMs = baseDate + (numDays * 24 * 60 * 60 * 1000);
           
-          await updateDoc(doc(db, 'users', client.id), {
-            subscription_end_date: timestampFromMillis(newEndDateMs),
-            is_active: true,
-            warning_message: ''
-          });
+                await updateDoc(doc(db, 'users', client.id), {
+                  subscription_end_date: timestampFromMillis(newEndDateMs),
+                  status: 'ACTIVE',
+                  isActive: true,
+                  is_active: true,
+                  warning_message: ''
+                });
         } catch (e) {
           console.error(e);
           alert('حدث خطأ أثناء التجديد');
@@ -528,7 +534,8 @@ const toggleStatus = async () => {
               </div>
               <div>
                 <label className="block text-[13px] font-bold text-gray-700 mb-2">رقم الهاتف</label>
-                <input required type="tel" dir="ltr" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-right text-[14px]" value={editPhone} onChange={e => setEditPhone(e.target.value)} disabled={isUpdating} />
+                  <input required type="tel" dir="ltr" className="w-full p-3.5 bg-gray-100 border border-gray-200 rounded-xl outline-none text-right text-[14px] text-gray-500" value={editPhone} disabled />
+                  <p className="text-[11px] text-gray-400 mt-1">لا يمكن تغيير الرقم من هذه اللوحة لأنه مرتبط بحساب الدخول.</p>
               </div>
               <div>
                 <label className="block text-[13px] font-bold text-gray-700 mb-2">نسبة العمولة (%)</label>

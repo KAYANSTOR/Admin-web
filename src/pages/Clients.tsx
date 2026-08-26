@@ -50,7 +50,7 @@ export default function Clients() {
 
   const getClientStatus = (client: any) => {
     if (client.status) return client.status;
-    return client.isActive ? 'ACTIVE' : 'SUSPENDED';
+    return (client.isActive ?? client.is_active) ? 'ACTIVE' : 'SUSPENDED';
   };
 
   const isClientActive = (client: any) => {

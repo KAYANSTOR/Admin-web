@@ -5,6 +5,7 @@ import { Users, ArrowLeft, ShieldOff, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { endDateToDate, endDateToMillis } from '../lib/subscriptionUtils';
 
 export default function Subscriptions() {
   const [clients, setClients] = useState<any[]>([]);
@@ -59,7 +60,8 @@ export default function Subscriptions() {
           ) : (
             <div className="divide-y divide-gray-100">
               {clients.map(client => {
-                const isExpired = client.subscription_end_date && client.subscription_end_date < Date.now();
+                const endDateMs = endDateToMillis(client.subscription_end_date);
+                const isExpired = endDateMs > 0 && endDateMs < Date.now();
                 return (
                   <div 
                     key={client.id} 
@@ -73,7 +75,7 @@ export default function Subscriptions() {
                       <div>
                         <div className="font-bold text-[14px] text-primary-dark">{client.name}</div>
                         <div className="text-[12px] text-gray-500">
-                          {client.subscription_end_date ? format(new Date(client.subscription_end_date), 'dd/MM/yyyy') : 'غير محدد'}
+                          {endDateToDate(client.subscription_end_date) ? format(endDateToDate(client.subscription_end_date)!, 'dd/MM/yyyy') : 'غير محدد'}
                         </div>
                       </div>
                     </div>

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, query, where, getDocs, addDoc, doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDocs, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../lib/firebase';
 
@@ -40,13 +40,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(JSON.parse(storedUserStr));
           }
           
-          // Setup real-time listener for current user
-          const usersRef = collection(db, 'users');
-          const q = query(usersRef, where("phone", "==", firebaseUser.email?.split('@')[0]));
-          
-          unsubscribeDoc = onSnapshot(q, (snapshot) => {
-            if (!snapshot.empty) {
-              const uData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as UserProfile;
+          // استخدم UID الخاص بـ Firebase بدل البحث بالهاتف؛ فهذا يمنع اختيار سجل مستخدم خاطئ عند تكرار الرقم.
+          if (unsubscribeDoc) unsubscribeDoc();
+          unsubscribeDoc = onSnapshot(doc(db, 'users', firebaseUser.uid), (userDoc) => {
+            if (userDoc.exists()) {
+              const uData = { id: userDoc.id, ...userDoc.data() } as UserProfile;
               
               if (uData.isActive === false) {
                 // Suspended
@@ -67,17 +65,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 localStorage.setItem('kayan_user', JSON.stringify(uData));
               }
             } else {
-              // Document deleted or not created yet
-              setUser((prev) => {
-                if (prev) {
-                  firebaseSignOut(auth).then(() => {
-                    localStorage.removeItem('kayan_user');
-                    setErrorMsg('حسابك غير موجود.');
-                  });
-                }
-                return null;
-              });
+              setUser(null);
+              localStorage.removeItem('kayan_user');
+              setErrorMsg('حسابك غير موجود.');
+              firebaseSignOut(auth).catch(() => {});
             }
+            setLoading(false);
           }, (error) => {
             console.error("Firestore onSnapshot permission error:", error);
             setErrorMsg("خطأ في صلاحيات قاعدة البيانات (Firestore). يرجى التأكد من تحديث قواعد الأمان كما هو موضح.");
@@ -95,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           unsubscribeDoc = null;
         }
       }
-      setLoading(false);
+      if (!firebaseUser) setLoading(false);
     });
 
     return () => {
@@ -105,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (name: string, phone: string, pin: string) => {
-    if (!name.trim() || !phone.trim() || pin.length !== 4) {
+    if (!phone.trim() || pin.length !== 4) {
       setErrorMsg('الرجاء تعبئة جميع الحقول بشكل صحيح (كلمة المرور 4 أرقام)');
       throw new Error('Invalid input');
     }
