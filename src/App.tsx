@@ -13,6 +13,7 @@ import Subscriptions from './pages/Subscriptions';
 import Commissions from './pages/Commissions';
 import Sales from './pages/Sales';
 import Employees from './pages/Employees';
+import DatabaseManager from './pages/DatabaseManager';
 
 function ProtectedRoute({ children, reqPerm }: { children: ReactNode, reqPerm?: string }) {
   const { user, loading } = useAuth();

@@ -122,23 +122,6 @@ export default function Clients() {
     }
   };
 
-  
-  
-  const promoteToAdmin = async (client: any) => {
-    if (!window.confirm(`هل أنت متأكد من ترقية ${client.name} إلى مشرف؟
-لن يظهر هذا الحساب في قائمة العملاء بعد الآن.`)) return;
-    try {
-      await updateDoc(doc(db, 'users', client.id), {
-        role: 'ADMIN',
-        permissions: ['clients', 'commissions', 'subscriptions', 'employees', 'sales']
-      });
-      alert('تم الترقية بنجاح!');
-    } catch (e) {
-      console.error(e);
-      alert('حدث خطأ');
-    }
-  };
-
   const changeStatus = async (client: any, newStatus: string) => {
     try {
       const isActive = ['ACTIVE', 'WARNING', 'GRACE_PERIOD'].includes(newStatus);
@@ -242,12 +225,6 @@ export default function Clients() {
                     className="text-[12px] font-bold text-primary bg-primary/5 px-2 py-1 rounded-lg"
                   >
                     تغيير الحالة
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); promoteToAdmin(client); }}
-                    className="text-[12px] font-bold text-white bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded-lg transition-colors mt-1"
-                  >
-                    ترقية لمشرف
                   </button>
 
                 </div>

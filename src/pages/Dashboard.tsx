@@ -101,12 +101,6 @@ export default function Dashboard() {
     { title: "فترة تجريبية", value: metrics.trialCount, icon: Clock, colorClass: "text-icon-purple", bgColorClass: "bg-icon-purple/15", onClick: () => navigate('/subscriptions'), req: 'subscriptions' },
   ].filter(k => hasPerm(k.req));
   
-  const actions = [
-    { title: "اشتراك جديد", icon: CreditCard, onClick: () => navigate('/subscriptions'), req: 'subscriptions' },
-    { title: "إضافة عميل", icon: UserPlus, onClick: () => navigate('/clients'), req: 'clients' },
-    { title: "إدارة العمولات", icon: Coins, onClick: () => navigate('/commissions'), req: 'commissions' },
-  ].filter(a => hasPerm(a.req));
-
   return (
     <div className="bg-app-bg min-h-full">
       {/* Header */}
@@ -164,27 +158,6 @@ export default function Dashboard() {
               <div className="text-[13px] font-medium text-gray-500">{kpi.title}</div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      {actions.length > 0 && (
-        <div className="px-6 mb-8">
-          <h2 className="text-[16px] font-bold text-primary-dark mb-4">الإجراءات السريعة</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {actions.map((action, idx) => (
-              <div 
-                key={idx}
-                onClick={action.onClick}
-                className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-[0_2px_4px_rgba(0,0,0,0.05)] cursor-pointer hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-full bg-app-bg flex items-center justify-center text-primary-dark">
-                  <action.icon className="w-5 h-5" />
-                </div>
-                <span className="text-[14px] font-bold text-primary-dark">{action.title}</span>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 

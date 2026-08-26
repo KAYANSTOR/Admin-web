@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
-  Home, Users, Key, Settings as SettingsIcon, Plus, UserPlus, ShieldOff, CheckCircle2, Menu, X, KeyRound, Coins
+  Home, Users, Key, Settings as SettingsIcon, Plus, UserPlus, ShieldOff, CheckCircle2, Menu, X, KeyRound, Coins, Database
 } from 'lucide-react';
 
 export default function AppLayout() {

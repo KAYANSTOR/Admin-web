@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Shield, Bell, BellRing, Lock, Smartphone, 
+  Shield, Bell, BellRing, Lock, Smartphone, Database,
   HelpCircle, LogOut, ChevronLeft, X
 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -157,6 +157,14 @@ export default function Settings() {
               title="إدارة الموظفين" 
               subtitle="إضافة أو حذف مستخدمين وصلاحياتهم" 
               onClick={() => navigate('/employees')}
+            />
+          )}
+          {user?.role === 'ADMIN' && (
+            <SettingRow 
+              icon={Database} 
+              title="قاعدة البيانات" 
+              subtitle="استكشاف وإدارة البيانات الخام (للمدير العام)" 
+              onClick={() => navigate('/database')}
             />
           )}
           {(user?.role === 'ADMIN' || user?.permissions?.includes('settings')) && (
