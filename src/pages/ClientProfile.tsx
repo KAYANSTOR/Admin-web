@@ -330,6 +330,7 @@ const toggleStatus = async () => {
                 <span>{client.storeName}</span>
               </div>
             )}
+      <ConfirmDialog {...dialogConfig} />
           </div>
         </div>
       </div>
@@ -348,6 +349,7 @@ const toggleStatus = async () => {
                 ) : (
                   <span className="text-[16px] font-bold text-primary-dark">حساب معتمد (PAID)</span>
                 )}
+      <ConfirmDialog {...dialogConfig} />
               </div>
             </div>
             
@@ -360,6 +362,7 @@ const toggleStatus = async () => {
                 اعتماد وتفعيل رسمي
               </button>
             )}
+      <ConfirmDialog {...dialogConfig} />
           </div>
           <div className="h-[1px] bg-gray-100"></div>
           <div className="flex justify-between items-center">
@@ -371,6 +374,7 @@ const toggleStatus = async () => {
               ) : (
                 <><ShieldOff className="w-5 h-5 text-red-500" /><span className="text-[16px] font-bold text-red-500">متوقف</span></>
               )}
+      <ConfirmDialog {...dialogConfig} />
             </div>
           </div>
           <button 
@@ -414,6 +418,7 @@ const toggleStatus = async () => {
                 <span className="text-[13px]">{client.warning_message}</span>
               </div>
             )}
+      <ConfirmDialog {...dialogConfig} />
           </div>
         </div>
 
@@ -507,6 +512,7 @@ const toggleStatus = async () => {
               ))}
             </div>
           )}
+      <ConfirmDialog {...dialogConfig} />
         </div>
         
       
@@ -538,6 +544,7 @@ const toggleStatus = async () => {
           </div>
         </div>
       )}
+      <ConfirmDialog {...dialogConfig} />
     </div>
   );
 }
