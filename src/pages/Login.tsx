@@ -53,7 +53,7 @@ export default function Login() {
                   className="w-full pr-10 pl-3 py-3.5 border border-gray-300 rounded-xl focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all bg-transparent text-right text-text-primary text-[15px] placeholder:text-gray-400"
                   dir="ltr"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                   placeholder="رقم الهاتف"
                 />
               </div>

@@ -4,6 +4,7 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as 
 import { db, auth } from '../lib/firebase';
 
 const ADMIN_PHONE = '773303455';
+const normalizePhone = (value: string) => value.replace(/\D/g, '');
 
 export interface UserProfile {
   id: string;
@@ -42,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(JSON.parse(storedUserStr));
           }
           
-          const adminPhone = firebaseUser.email?.split('@')[0] || '';
+          const adminPhone = normalizePhone(firebaseUser.email?.split('@')[0] || '');
           if (adminPhone === ADMIN_PHONE) {
             setUser({ id: firebaseUser.uid, name: 'مدير النظام', phone: ADMIN_PHONE, role: 'ADMIN', permissions: [], isActive: true });
             localStorage.setItem('kayan_user', JSON.stringify({ id: firebaseUser.uid, name: 'مدير النظام', phone: ADMIN_PHONE, role: 'ADMIN', permissions: [], isActive: true }));
@@ -113,13 +114,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (name: string, phone: string, pin: string) => {
-    if (!phone.trim() || pin.length !== 4) {
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone || pin.length !== 4) {
       setErrorMsg('الرجاء تعبئة جميع الحقول بشكل صحيح (كلمة المرور 4 أرقام)');
       throw new Error('Invalid input');
     }
 
     setErrorMsg(null);
-    const email = `${phone}@kayansoft.com`;
+    const email = `${normalizedPhone}@kayansoft.com`;
     const password = `${pin}kayan`;
 
     try {
@@ -127,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signInWithEmailAndPassword(auth, email, password);
 
       // حساب الأدمن مستقل عن users ولا يحتاج إلى وثيقة عميل.
-      if (phone.trim() === ADMIN_PHONE) {
+      if (normalizedPhone === ADMIN_PHONE) {
         const adminUser: UserProfile = { id: auth.currentUser!.uid, name: 'مدير النظام', phone: ADMIN_PHONE, role: 'ADMIN', permissions: [], isActive: true };
         setUser(adminUser);
         localStorage.setItem('kayan_user', JSON.stringify(adminUser));
@@ -136,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // الموظفون فقط تُقرأ ملفاتهم من employees.
       const employeesRef = collection(db, 'employees');
-      const userQuery = query(employeesRef, where('phone', '==', phone.trim()));
+      const userQuery = query(employeesRef, where('phone', '==', normalizedPhone));
       const querySnapshot = await getDocs(userQuery);
       const docSnap = querySnapshot.docs.find((item) => {
         const role = item.data().role;
@@ -176,7 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setErrorMsg('عذراً، هذا الحساب للعملاء فقط ولا يمكنه الدخول للوحة التحكم.');
       } else if (e.message === 'Invalid credentials (Firestore mismatch)') {
         setErrorMsg('الحساب غير موجود في قاعدة البيانات');
-      } else if (!errorMsg) {
+      } else {
         setErrorMsg('حدث خطأ في تسجيل الدخول. تأكد من صحة البيانات.');
       }
       throw e;
