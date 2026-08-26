@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collectionGroup, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collectionGroup, query, orderBy, limit, getDocs, collection } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { TrendingUp, ArrowLeft, Search } from 'lucide-react';
@@ -18,6 +18,13 @@ export default function Sales() {
   useEffect(() => {
     const fetchSales = async () => {
       try {
+        // Fetch all users to map network/client IDs to their names
+        const usersSnap = await getDocs(collection(db, 'users'));
+        const usersMap = new Map();
+        usersSnap.forEach(u => {
+          usersMap.set(u.id, u.data().name || 'مستخدم غير معروف');
+        });
+
         const salesQuery = query(collectionGroup(db, 'sales'), orderBy('createdAt', 'desc'), limit(500));
         const snap = await getDocs(salesQuery);
         let allSales: any[] = [];
@@ -31,7 +38,11 @@ export default function Sales() {
           if (filterParam === 'today' && data.createdAt < startOfDay) return;
           if (filterParam === 'month' && data.createdAt < startOfMonth) return;
           
-          allSales.push({ id: d.id, ...data });
+          const parentDoc = d.ref.parent.parent;
+          const clientId = parentDoc ? parentDoc.id : data.networkId;
+          const clientName = usersMap.get(clientId) || 'غير معروف';
+
+          allSales.push({ id: d.id, clientId, clientName, ...data });
         });
         
         setSales(allSales);
@@ -79,6 +90,8 @@ export default function Sales() {
                 <div key={sale.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
                   <div>
                     <div className="font-bold text-[14px] text-primary-dark flex items-center gap-2">
+                      <span className="text-blue-600">👤 {sale.clientName}</span>
+                      <span className="text-gray-300">|</span>
                       <span>بطاقة: {sale.cardId || '-'}</span>
                       {sale.categoryId && <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{sale.categoryId}</span>}
                     </div>
