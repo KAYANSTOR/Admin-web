@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { doc, getDocs, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../lib/firebase';
 
@@ -111,16 +111,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 1. Try to sign in with Firebase Auth
       await signInWithEmailAndPassword(auth, email, password);
 
-      // 2. We are authenticated! Now read from Firestore to get Profile
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where("phone", "==", phone));
-      
-      let querySnapshot = await getDocs(q);
-      
-      
-      
-      if (!querySnapshot.empty) {
-        const docSnap = querySnapshot.docs[0];
+      // 2. اقرأ ملف الأدمن المرتبط بجلسة Firebase الحالية فقط.
+      const docSnap = await getDoc(doc(db, 'users', auth.currentUser!.uid));
+      if (docSnap.exists()) {
         const userData = docSnap.data() as Omit<UserProfile, 'id'>;
         
         if (userData.isActive === false) {
