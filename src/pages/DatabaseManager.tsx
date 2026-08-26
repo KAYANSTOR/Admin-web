@@ -145,7 +145,7 @@ export default function DatabaseManager() {
               disabled={loading}
               className="bg-gray-800 text-white px-5 rounded-xl font-bold hover:bg-gray-900 flex items-center justify-center disabled:opacity-50"
             >
-              <RefreshCw className={\`w-5 h-5 \${loading ? 'animate-spin' : ''}\`} />
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
           <div className="mt-3 flex gap-2 flex-wrap">
