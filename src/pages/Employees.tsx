@@ -40,7 +40,7 @@ export default function Employees() {
       return;
     }
 
-    const q = query(collection(db, 'users'));
+    const q = query(collection(db, 'employees'));
     return onSnapshot(q, (snapshot) => {
       const data: any[] = [];
       snapshot.forEach(d => {
@@ -81,7 +81,7 @@ export default function Employees() {
     try {
       if (editingEmp) {
         // Edit existing user in Firestore
-        await updateDoc(doc(db, 'users', editingEmp.id), {
+        await updateDoc(doc(db, 'employees', editingEmp.id), {
           name: newName,
           phone: newPhone,
           pin: newPin,
@@ -96,7 +96,7 @@ export default function Employees() {
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
         
         // Store in Firestore USING setDoc with the UID
-        await setDoc(doc(db, 'users', userCredential.user.uid), {
+        await setDoc(doc(db, 'employees', userCredential.user.uid), {
           uid: userCredential.user.uid,
           name: newName,
           phone: newPhone,
@@ -135,7 +135,7 @@ export default function Employees() {
     if (employee.id === user?.id) return;
     try {
       const nextActive = !(employee.isActive ?? employee.is_active ?? true);
-      await updateDoc(doc(db, 'users', employee.id), {
+      await updateDoc(doc(db, 'employees', employee.id), {
         isActive: nextActive,
         is_active: nextActive
       });
@@ -148,7 +148,7 @@ export default function Employees() {
   const deleteEmployee = async (id: string) => {
     if (id === user?.id) return;
     try {
-      await deleteDoc(doc(db, 'users', id));
+      await deleteDoc(doc(db, 'employees', id));
       setDeleteConfirmId(null);
     } catch (err: any) {
       console.error("Delete Error details:", err);

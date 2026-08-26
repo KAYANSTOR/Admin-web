@@ -1,13 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, onSnapshot } from 'firebase/firestore';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../lib/firebase';
+
+const ADMIN_PHONE = '773303455';
 
 export interface UserProfile {
   id: string;
   name: string;
   phone: string;
-  pin: string;
+  pin?: string;
   role: 'ADMIN' | 'STAFF';
   permissions: string[];
   isActive: boolean;
@@ -40,10 +42,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(JSON.parse(storedUserStr));
           }
           
-          // استخدم UID الخاص بـ Firebase بدل البحث بالهاتف؛ فهذا يمنع اختيار سجل مستخدم خاطئ عند تكرار الرقم.
+          const adminPhone = firebaseUser.email?.split('@')[0] || '';
+          if (adminPhone === ADMIN_PHONE) {
+            setUser({ id: firebaseUser.uid, name: 'مدير النظام', phone: ADMIN_PHONE, role: 'ADMIN', permissions: [], isActive: true });
+            localStorage.setItem('kayan_user', JSON.stringify({ id: firebaseUser.uid, name: 'مدير النظام', phone: ADMIN_PHONE, role: 'ADMIN', permissions: [], isActive: true }));
+            setLoading(false);
+            return;
+          }
+
+          // حسابات الموظفين تُقرأ من users، بينما حساب الأدمن مستقل عن هذه المجموعة.
           if (unsubscribeDoc) unsubscribeDoc();
-          unsubscribeDoc = onSnapshot(doc(db, 'users', firebaseUser.uid), (userDoc) => {
-            if (userDoc.exists()) {
+          const userQuery = query(collection(db, 'employees'), where('phone', '==', adminPhone));
+          unsubscribeDoc = onSnapshot(userQuery, (snapshot) => {
+            const userDoc = snapshot.docs.find((item) => {
+              const role = item.data().role;
+              return role === 'ADMIN' || role === 'STAFF';
+            });
+            if (userDoc) {
               const uData = { id: userDoc.id, ...userDoc.data() } as UserProfile;
               
               if (uData.isActive === false) {
@@ -67,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else {
               setUser(null);
               localStorage.removeItem('kayan_user');
-              setErrorMsg('حسابك غير موجود.');
+              setErrorMsg('الحساب الإداري غير موجود أو غير مصرح له.');
               firebaseSignOut(auth).catch(() => {});
             }
             setLoading(false);
@@ -111,9 +126,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 1. Try to sign in with Firebase Auth
       await signInWithEmailAndPassword(auth, email, password);
 
-      // 2. اقرأ ملف الأدمن المرتبط بجلسة Firebase الحالية فقط.
-      const docSnap = await getDoc(doc(db, 'users', auth.currentUser!.uid));
-      if (docSnap.exists()) {
+      // حساب الأدمن مستقل عن users ولا يحتاج إلى وثيقة عميل.
+      if (phone.trim() === ADMIN_PHONE) {
+        const adminUser: UserProfile = { id: auth.currentUser!.uid, name: 'مدير النظام', phone: ADMIN_PHONE, role: 'ADMIN', permissions: [], isActive: true };
+        setUser(adminUser);
+        localStorage.setItem('kayan_user', JSON.stringify(adminUser));
+        return;
+      }
+
+      // الموظفون فقط تُقرأ ملفاتهم من employees.
+      const employeesRef = collection(db, 'employees');
+      const userQuery = query(employeesRef, where('phone', '==', phone.trim()));
+      const querySnapshot = await getDocs(userQuery);
+      const docSnap = querySnapshot.docs.find((item) => {
+        const role = item.data().role;
+        return role === 'ADMIN' || role === 'STAFF';
+      });
+      if (docSnap) {
         const userData = docSnap.data() as Omit<UserProfile, 'id'>;
         
         if (userData.isActive === false) {

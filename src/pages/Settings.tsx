@@ -36,11 +36,6 @@ export default function Settings() {
     setSecurityError('');
     setSecuritySuccess('');
 
-    if (oldPin !== user?.pin) {
-      setSecurityError('الرمز القديم غير صحيح');
-      return;
-    }
-
     if (newPin.length !== 4) {
       setSecurityError('رمز الدخول الجديد يجب أن يكون 4 أرقام');
       return;
@@ -64,11 +59,9 @@ export default function Settings() {
         await updatePassword(auth.currentUser, newPassword);
       }
 
-      // Update Firestore
-      if (user?.id) {
-        await updateDoc(doc(db, 'users', user.id), {
-          pin: newPin
-        });
+      // حساب الأدمن مستقل عن users؛ تحديث الرمز يتم في Firebase Authentication فقط.
+      if (user?.role !== 'ADMIN' && user?.id) {
+        await updateDoc(doc(db, 'employees', user.id), { pin: newPin });
       }
 
       setSecuritySuccess('تم تغيير رمز الدخول بنجاح');
@@ -90,10 +83,11 @@ export default function Settings() {
   const handleToggleNotifications = async () => {
     const newValue = !notificationsEnabled;
     setNotificationsEnabled(newValue);
+    if (user?.role === 'ADMIN') return;
     setNotifLoading(true);
     try {
       if (user?.id) {
-        await updateDoc(doc(db, 'users', user.id), {
+        await updateDoc(doc(db, 'employees', user.id), {
           notificationsEnabled: newValue
         });
       }
