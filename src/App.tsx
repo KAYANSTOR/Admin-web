@@ -12,8 +12,6 @@ import NotificationsManager from './pages/NotificationsManager';
 import Subscriptions from './pages/Subscriptions';
 import Commissions from './pages/Commissions';
 import Sales from './pages/Sales';
-import Serials from './pages/Serials';
-import CreateSerial from './pages/CreateSerial';
 import Employees from './pages/Employees';
 
 function ProtectedRoute({ children, reqPerm }: { children: ReactNode, reqPerm?: string }) {
@@ -49,8 +47,6 @@ export default function App() {
             <Route path="subscriptions" element={<ProtectedRoute reqPerm="subscriptions"><Subscriptions /></ProtectedRoute>} />
             <Route path="commissions" element={<ProtectedRoute reqPerm="commissions"><Commissions /></ProtectedRoute>} />
             <Route path="sales" element={<ProtectedRoute reqPerm="sales"><Sales /></ProtectedRoute>} />
-            <Route path="serials" element={<ProtectedRoute reqPerm="serials"><Serials /></ProtectedRoute>} />
-            <Route path="create-serial" element={<ProtectedRoute reqPerm="serials"><CreateSerial /></ProtectedRoute>} />
             <Route path="employees" element={<ProtectedRoute reqPerm="employees"><Employees /></ProtectedRoute>} />
           </Route>
         </Routes>

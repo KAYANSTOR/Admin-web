@@ -24,7 +24,7 @@ export default function AppLayout() {
   
   const middleIndex = Math.floor(visibleNavItems.length / 2);
   const hasAnyQuickAction = user?.role === 'ADMIN' || 
-    user?.permissions?.some(p => ['serials', 'subscriptions', 'commissions', 'employees'].includes(p));
+    user?.permissions?.some(p => ['subscriptions', 'commissions', 'employees'].includes(p));
 
   return (
     <div dir="rtl" className="min-h-screen bg-app-bg text-text-primary pb-[104px]">
@@ -90,15 +90,6 @@ export default function AppLayout() {
             <h2 className="text-xl font-bold text-text-primary px-6 py-2 mb-2">إجراءات سريعة</h2>
             
             <div className="flex flex-col">
-              {(user?.role === 'ADMIN' || user?.permissions?.includes('serials')) && (
-                <button 
-                  onClick={() => { setShowQuickActions(false); navigate('/create-serial'); }}
-                  className="w-full px-6 py-4 flex items-center gap-4 text-text-primary hover:bg-gray-50 transition-colors"
-                >
-                  <KeyRound className="w-6 h-6" />
-                  <span className="text-lg font-bold">إنشاء سيريال للعميل</span>
-                </button>
-              )}
 
               {(user?.role === 'ADMIN' || user?.permissions?.includes('employees')) && (
                 <button 

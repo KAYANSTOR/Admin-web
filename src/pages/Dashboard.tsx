@@ -63,12 +63,14 @@ export default function Dashboard() {
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).setHours(0,0,0,0);
 
         allSales.forEach(data => {
+          if (data.status !== 'COMPLETED') return; // حساب المبيعات الناجحة فقط
+
           const faceValue = data.faceValue || 0;
           const createdAt = data.createdAt || 0;
           
           if (createdAt >= startOfMonth) {
             monthSalesValue += faceValue;
-            pendingCommissions += faceValue * 0.05; // Dummy logic for dashboard aesthetics
+            pendingCommissions += data.commission || 0; 
           }
           if (createdAt >= startOfDay) {
             todaySalesValue += faceValue;
@@ -101,7 +103,6 @@ export default function Dashboard() {
   
   const actions = [
     { title: "اشتراك جديد", icon: CreditCard, onClick: () => navigate('/subscriptions'), req: 'subscriptions' },
-    { title: "إضافة جهاز", icon: Phone, onClick: () => navigate('/serials'), req: 'serials' },
     { title: "إضافة عميل", icon: UserPlus, onClick: () => navigate('/clients'), req: 'clients' },
     { title: "إدارة العمولات", icon: Coins, onClick: () => navigate('/commissions'), req: 'commissions' },
   ].filter(a => hasPerm(a.req));

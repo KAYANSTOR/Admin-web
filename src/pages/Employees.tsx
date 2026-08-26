@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, setDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, deleteUser } from 'firebase/auth';
 import { db, secondaryAuth } from '../lib/firebase';
 import { ArrowLeft, Plus, Shield, User, Trash2, Edit2, Check, X } from 'lucide-react';
@@ -8,7 +8,6 @@ import { useAuth } from '../contexts/AuthContext';
 
 const ALL_PERMISSIONS = [
   { id: 'clients', label: 'العملاء' },
-  { id: 'serials', label: 'السيريالات' },
   { id: 'commissions', label: 'العمولات' },
   { id: 'subscriptions', label: 'الاشتراكات' },
   { id: 'employees', label: 'الموظفين' },
@@ -96,8 +95,8 @@ export default function Employees() {
         
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
         
-        // Store in Firestore
-        await addDoc(collection(db, 'users'), {
+        // Store in Firestore USING setDoc with the UID
+        await setDoc(doc(db, 'users', userCredential.user.uid), {
           uid: userCredential.user.uid,
           name: newName,
           phone: newPhone,
@@ -105,6 +104,7 @@ export default function Employees() {
           role: newRole,
           permissions: newRole === 'ADMIN' ? ALL_PERMISSIONS.map(p => p.id) : newPermissions,
           isActive: true,
+          is_active: true, // For consistency
           createdAt: serverTimestamp(),
         });
 

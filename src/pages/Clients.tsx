@@ -85,20 +85,27 @@ export default function Clients() {
 
     try {
       const userCred = await createUserWithEmailAndPassword(secondaryAuth, generatedEmail, generatedPassword);
-      await setDoc(doc(db, 'users', userCred.user.uid), {
+            await setDoc(doc(db, 'users', userCred.user.uid), {
         name: newName.trim(),
         phone: newPhone.trim(),
         pin: newPassword.trim(),
         email: generatedEmail,
         storeName: newStore.trim(),
         status: 'ACTIVE',
-        isActive: true,
         is_active: true,
-        commissionPercentage: parseFloat(newCommission) || 0,
         commission_rate: parseFloat(newCommission) || 0,
         role: 'NETWORK_OWNER',
         createdAt: serverTimestamp(),
         deviceLimit: 3
+      });
+
+      // إنشـاء ميتا داتا الشبكة الإلزامي حسب الدليل
+      await setDoc(doc(db, 'networks', userCred.user.uid, '_metadata', 'info'), {
+        networkId: userCred.user.uid,
+        name: newName.trim(),
+        phoneNumber: newPhone.trim(),
+        description: newStore.trim(),
+        createdAt: Date.now()
       });
       await secondaryAuth.signOut();
       setIsCreateModalOpen(false);
@@ -123,7 +130,7 @@ export default function Clients() {
     try {
       await updateDoc(doc(db, 'users', client.id), {
         role: 'ADMIN',
-        permissions: ['clients', 'licenses', 'serials', 'commissions', 'subscriptions', 'employees', 'sales']
+        permissions: ['clients', 'commissions', 'subscriptions', 'employees', 'sales']
       });
       alert('تم الترقية بنجاح!');
     } catch (e) {

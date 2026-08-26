@@ -1,12 +1,49 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
-import { doc, onSnapshot, collection, query, orderBy, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
 import { ArrowLeft, Phone, CheckCircle2, ShieldOff, AlertTriangle, Calendar, Building2, Coins, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
 export default function ClientProfile() {
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editCommission, setEditCommission] = useState('');
+  
+  const openEditModal = () => {
+    if (!client) return;
+    setEditName(client.name || '');
+    setEditPhone(client.phone || '');
+    setEditCommission(client.commission_rate?.toString() || '0');
+    setIsEditModalOpen(true);
+  };
+  
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client) return;
+    setIsUpdating(true);
+    try {
+      await updateDoc(doc(db, 'users', client.id), {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        commission_rate: parseFloat(editCommission) || 0
+      });
+      // Update network metadata as well
+      await updateDoc(doc(db, 'networks', client.id, '_metadata', 'info'), {
+        name: editName.trim(),
+        phoneNumber: editPhone.trim()
+      }).catch(err => console.log('Network info might not exist yet, ignoring...', err));
+      setIsEditModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ أثناء حفظ البيانات');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const { id } = useParams();
   const navigate = useNavigate();
   const [client, setClient] = useState<any>(null);
@@ -49,6 +86,25 @@ export default function ClientProfile() {
     return () => unsub();
   }, [id]);
 
+  
+  const handleDeleteClient = async () => {
+    if (!client) return;
+    const confirm = window.prompt('تنبيه خطير: سيتم حذف جميع بيانات العميل من قاعدة البيانات (بما فيها ملفه الأساسي). لا يمكن التراجع عن هذه العملية! اكتب "حذف" للتأكيد:');
+    if (confirm !== 'حذف') return;
+    
+    setIsUpdating(true);
+    try {
+      await deleteDoc(doc(db, 'users', client.id));
+      // NOTE: Firebase Auth user must be deleted from Firebase Console or via Cloud Function
+      alert('تم حذف العميل بنجاح. تذكر حذف حسابه من Firebase Authentication يدوياً إذا أردت منعه من تسجيل الدخول نهائياً.');
+      navigate('/clients');
+    } catch (e) {
+      console.error(e);
+      alert('حدث خطأ أثناء الحذف');
+      setIsUpdating(false);
+    }
+  };
+
   const toggleStatus = async () => {
     if (!client) return;
     if (!window.confirm(client.is_active ? 'هل أنت متأكد من إيقاف هذا العميل؟' : 'هل أنت متأكد من تفعيل هذا العميل؟')) return;
@@ -56,13 +112,32 @@ export default function ClientProfile() {
     try {
       await updateDoc(doc(db, 'users', client.id), {
         is_active: !client.is_active,
-        isActive: !client.is_active
+        
       });
     } catch (e) {
       console.error(e);
       alert('حدث خطأ أثناء تحديث الحالة');
     }
     setIsUpdating(false);
+  };
+
+  
+  const updateWarning = async () => {
+    if (!client) return;
+    const msg = window.prompt('أدخل رسالة التحذير للعميل (اتركها فارغة للإزالة):', client.warning_message || '');
+    if (msg === null) return;
+    
+    setIsUpdating(true);
+    try {
+      await updateDoc(doc(db, 'users', client.id), {
+        warning_message: msg.trim()
+      });
+    } catch (e) {
+      console.error(e);
+      alert('حدث خطأ أثناء حفظ الرسالة');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const renewSubscription = async () => {
@@ -83,7 +158,7 @@ export default function ClientProfile() {
       await updateDoc(doc(db, 'users', client.id), {
         subscription_end_date: newEndDate,
         is_active: true,
-        isActive: true,
+        
         warning_message: ''
       });
       alert('تم تجديد الاشتراك بنجاح!');
@@ -97,7 +172,7 @@ export default function ClientProfile() {
   if (loading) return <div className="p-6 text-center">جاري التحميل...</div>;
   if (!client) return <div className="p-6 text-center">العميل غير موجود. <button onClick={() => navigate('/clients')} className="text-primary hover:underline">العودة</button></div>;
 
-  const totalSalesValue = sales.reduce((sum, s) => sum + (s.faceValue || 0), 0);
+  const totalSalesValue = sales.filter(s => s.status === 'COMPLETED').reduce((sum, s) => sum + (s.faceValue || 0), 0);
   const totalCommission = sales.reduce((sum, s) => sum + (s.commission || 0), 0); // Or use faceValue * client.commission_rate
   const calculatedAdminCommission = totalSalesValue * ((client.commission_rate || 0) / 100);
   
@@ -240,17 +315,30 @@ export default function ClientProfile() {
               {sales.slice(0, 50).map(sale => (
                 <div key={sale.id} className="p-4 flex justify-between items-center">
                   <div>
-                    <div className="font-bold text-[14px] text-primary-dark">بطاقة: {sale.cardId || 'غير معروف'}</div>
-                    <div className="text-[12px] text-gray-500 flex gap-2">
-                      <span>{sale.createdAt ? format(new Date(sale.createdAt), 'dd/MM HH:mm') : ''}</span>
+                    <div className="font-bold text-[14px] text-primary-dark flex items-center gap-2">
+                      <span>بطاقة: {sale.cardId || '-'}</span>
+                      {sale.categoryId && <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{sale.categoryId}</span>}
+                    </div>
+                    <div className="text-[12px] text-gray-500 flex flex-wrap gap-2 mt-1">
+                      <span>{sale.createdAt ? format(new Date(sale.createdAt), 'dd/MM/yyyy HH:mm') : ''}</span>
                       <span>•</span>
-                      <span>الزبون: {sale.customerId}</span>
+                      <span dir="ltr">الزبون: {sale.customerId || '-'}</span>
+                      {sale.saleType && <><span>•</span><span className="text-primary">{sale.saleType}</span></>}
+                    </div>
+                    <div className="text-[11px] text-gray-400 flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                      {sale.transactionId && <span>رقم العملية: {sale.transactionId}</span>}
+                      {sale.posId && <span>نقاط البيع: {sale.posId}</span>}
+                      {sale.smsMessageId && <span>SMS: {sale.smsMessageId}</span>}
                     </div>
                   </div>
                   <div className="text-left">
-                    <div className="font-black text-[15px] text-primary-dark">{sale.faceValue || 0} ري</div>
-                    <div className={`text-[11px] font-bold ${sale.status === 'COMPLETED' ? 'text-green-600' : 'text-orange-600'}`}>
-                      {sale.status === 'COMPLETED' ? 'مكتمل' : sale.status}
+                    <div className="text-left">
+                      <div className="font-black text-[15px] text-primary-dark">{sale.faceValue || 0} ري</div>
+                      {sale.netAmount !== undefined && <div className="text-[11px] text-gray-500">الصافي: {sale.netAmount}</div>}
+                      {sale.commission !== undefined && <div className="text-[11px] text-teal-600">عمولة: {sale.commission}</div>}
+                    </div>
+                    <div className={`text-[11px] font-bold text-center px-2 py-1 rounded-lg mt-1 ${sale.status === 'COMPLETED' ? 'bg-green-50 text-green-600' : sale.status === 'ROLLED_BACK' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}>
+                      {sale.status === 'COMPLETED' ? 'مكتمل' : sale.status === 'ROLLED_BACK' ? 'مسترجع' : sale.status === 'SMS_PENDING' ? 'قيد الـ SMS' : sale.status}
                     </div>
                   </div>
                 </div>
@@ -259,7 +347,36 @@ export default function ClientProfile() {
           )}
         </div>
         
+      
       </div>
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface rounded-[24px] w-full max-w-sm p-6 animate-in zoom-in-95 duration-200">
+            <h2 className="font-black text-[18px] text-primary-dark mb-4 text-center">تعديل بيانات العميل</h2>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[13px] font-bold text-gray-700 mb-2">اسم العميل</label>
+                <input required type="text" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={editName} onChange={e => setEditName(e.target.value)} disabled={isUpdating} />
+              </div>
+              <div>
+                <label className="block text-[13px] font-bold text-gray-700 mb-2">رقم الهاتف</label>
+                <input required type="tel" dir="ltr" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-right text-[14px]" value={editPhone} onChange={e => setEditPhone(e.target.value)} disabled={isUpdating} />
+              </div>
+              <div>
+                <label className="block text-[13px] font-bold text-gray-700 mb-2">نسبة العمولة (%)</label>
+                <input required type="number" step="0.01" min="0" max="100" className="w-full p-3.5 bg-app-bg border border-gray-200 rounded-xl outline-none focus:border-primary text-[14px]" value={editCommission} onChange={e => setEditCommission(e.target.value)} disabled={isUpdating} />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="submit" disabled={isUpdating} className="flex-1 bg-primary text-white py-3.5 rounded-xl font-bold text-[15px] disabled:opacity-50">
+                  {isUpdating ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                </button>
+                <button type="button" onClick={() => setIsEditModalOpen(false)} disabled={isUpdating} className="flex-1 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-bold text-[15px] disabled:opacity-50">إلغاء</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

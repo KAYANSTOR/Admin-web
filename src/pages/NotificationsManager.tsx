@@ -1,8 +1,8 @@
-import { sendPushNotification } from '../lib/fcm';
+
 import { serviceAccount } from '../config/serviceAccount';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, addDoc, collection, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { ArrowLeft, BellRing, Send, CheckCircle2, MessageSquare, Bell } from 'lucide-react';
 
@@ -17,6 +17,19 @@ export default function NotificationsManager() {
   
   // UI States
   const [isLoading, setIsLoading] = useState(false);
+
+  const [clients, setClients] = useState<any[]>([]);
+  useEffect(() => {
+    const fetchClients = async () => {
+      const q = query(collection(db, 'users'), where('role', '==', 'NETWORK_OWNER'));
+      const snap = await getDocs(q);
+      const list: any[] = [];
+      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+      setClients(list);
+    };
+    fetchClients();
+  }, []);
+
   const [success, setSuccess] = useState(false);
 
   const handleSendNotification = async (e: React.FormEvent) => {
@@ -25,9 +38,28 @@ export default function NotificationsManager() {
     
     setIsLoading(true);
     try {
-      // 1. Send In-App Pop-up (Save to App Settings)
+      const now = Date.now();
+      
+      // 1. إشعار النظام (عام) -> app_settings/global_config/notifications
+      if (targetAudience === 'ALL') {
+         await addDoc(collection(db, 'app_settings', 'global_config', 'notifications'), {
+           title: title.trim(),
+           message: message.trim(),
+           timestamp: now
+         });
+      } else {
+         // 2. إشعار لمستخدم فردي -> users/{UID}/notifications
+         await addDoc(collection(db, 'users', targetAudience, 'notifications'), {
+           title: title.trim(),
+           message: message.trim(),
+           timestamp: now,
+           is_read: false
+         });
+      }
+
+      // إضافة نافذة منبثقة (Popup) إلى إعدادات النظام الحالية إذا طُلب ذلك
       if (notificationType === 'POPUP' || notificationType === 'BOTH') {
-        await setDoc(doc(db, 'settings', 'app_settings'), {
+        await setDoc(doc(db, 'app_settings', 'global_config'), {
           Current_Popup: {
             title: title.trim(),
             message: message.trim(),
@@ -37,24 +69,6 @@ export default function NotificationsManager() {
         }, { merge: true });
       }
 
-      // 2. Send Push Notification (FCM / Queue)
-      if (notificationType === 'PUSH' || notificationType === 'BOTH') {
-        // 1. Save to a log in Firestore
-        await addDoc(collection(db, 'notifications'), {
-          title: title.trim(),
-          message: message.trim(),
-          target: targetAudience,
-          status: 'sent_locally',
-          createdAt: serverTimestamp()
-        });
-
-        // 2. Send directly using FCM HTTP v1 (No backend required)
-        if (!serviceAccount || !serviceAccount.client_email) {
-          throw new Error('ملف Service Account مفقود! يرجى إضافته في src/config/serviceAccount.ts');
-        }
-        await sendPushNotification(serviceAccount, targetAudience, title.trim(), message.trim());
-      }
-      
       setSuccess(true);
       setTitle('');
       setMessage('');
@@ -101,10 +115,12 @@ export default function NotificationsManager() {
                 value={targetAudience}
                 onChange={e => setTargetAudience(e.target.value)}
               >
-                <option value="ALL">الجميع (All)</option>
-                <option value="UNPAID_SUB">غير المسددين للاشتراك</option>
-                <option value="UNPAID_COMM">المتأخرين عن دفع العمولات</option>
-                <option value="UNSETTLED">الحسابات غير المصفاة</option>
+                <option value="ALL">إشعار عام للجميع</option>
+                <optgroup label="تخصيص لعميل محدد">
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.name || 'عميل غير مسمى'} - {c.phone}</option>
+                  ))}
+                </optgroup>
               </select>
             </div>
 
